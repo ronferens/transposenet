@@ -1,1 +1,1 @@
-# TransPoseNet
+# SegPose
