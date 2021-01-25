@@ -1,0 +1,125 @@
+[24-01-21 20:50] [INFO] - Start transposenet with test
+[24-01-21 20:50] [INFO] - Using dataset: /media/ronf/data/datasets/cambridge
+[24-01-21 20:50] [INFO] - Using labels file: /home/ronf/git/segpose/datasets/cambridge/sub_scenes/abs_cambridge_pose_sorted.csv_KingsCollege_MS_3_pose_test_0.csv
+[24-01-21 20:50] [INFO] - Running with configuration:
+	batch_size: 8
+	learnable: True
+	s_x: -3
+	s_q: -6.5
+	lr: 0.0001
+	norm: 2
+	weight_decay: 0.0001
+	eps: 1e-10
+	lr_scheduler_gamma: 0.1
+	lr_scheduler_step_size: 200
+	n_epochs: 600
+	num_encoder_layers: 6
+	dim_feedforward: 256
+	hidden_dim: 256
+	dropout: 0.1
+	nheads: 4
+	freeze: False
+	reduction: ['reduction_4', 'reduction_3']
+	use_prior_t_for_rot: False
+	freeze_exclude_phrase: regressor_head_rot
+	n_freq_print: 5
+	n_freq_checkpoint: 50
+	n_workers: 4
+	device_id: cuda:0
+[24-01-21 20:50] [INFO] - Initializing from checkpoint: /home/ronf/git/transposenet/out/kings_0/run_20_01_21_23_47_final.pth
+[24-01-21 20:50] [INFO] - Pose error: 0.930[m], 0.829[deg], inferred in 38.27[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.792[m], 0.448[deg], inferred in 24.89[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.292[m], 0.231[deg], inferred in 23.46[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.285[m], 0.517[deg], inferred in 22.21[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.769[m], 1.003[deg], inferred in 18.12[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.689[m], 0.587[deg], inferred in 17.39[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.993[m], 1.396[deg], inferred in 17.81[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.164[m], 0.699[deg], inferred in 18.09[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.809[m], 1.905[deg], inferred in 18.18[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.526[m], 0.771[deg], inferred in 17.82[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.729[m], 0.891[deg], inferred in 17.52[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.673[m], 1.532[deg], inferred in 21.23[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.281[m], 0.826[deg], inferred in 21.27[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.957[m], 0.525[deg], inferred in 27.89[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.817[m], 1.711[deg], inferred in 22.47[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.082[m], 1.419[deg], inferred in 20.33[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.925[m], 1.003[deg], inferred in 21.19[ms]
+[24-01-21 20:50] [INFO] - Pose error: 3.259[m], 13.711[deg], inferred in 20.30[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.337[m], 7.185[deg], inferred in 19.22[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.068[m], 3.536[deg], inferred in 17.11[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.993[m], 5.286[deg], inferred in 22.07[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.979[m], 6.400[deg], inferred in 20.67[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.711[m], 7.198[deg], inferred in 20.21[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.390[m], 7.966[deg], inferred in 20.79[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.800[m], 11.825[deg], inferred in 22.88[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.319[m], 10.938[deg], inferred in 20.34[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.590[m], 6.405[deg], inferred in 20.98[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.605[m], 7.588[deg], inferred in 20.48[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.082[m], 2.713[deg], inferred in 17.16[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.762[m], 2.634[deg], inferred in 23.29[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.820[m], 7.537[deg], inferred in 20.60[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.701[m], 6.031[deg], inferred in 26.54[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.319[m], 7.747[deg], inferred in 22.53[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.305[m], 6.744[deg], inferred in 21.03[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.744[m], 7.491[deg], inferred in 35.19[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.084[m], 3.636[deg], inferred in 17.94[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.767[m], 4.714[deg], inferred in 16.93[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.568[m], 5.848[deg], inferred in 19.09[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.762[m], 3.774[deg], inferred in 20.61[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.509[m], 5.141[deg], inferred in 21.41[ms]
+[24-01-21 20:50] [INFO] - Pose error: 3.312[m], 9.306[deg], inferred in 21.18[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.242[m], 4.970[deg], inferred in 19.77[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.603[m], 5.449[deg], inferred in 21.30[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.492[m], 2.889[deg], inferred in 20.55[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.568[m], 1.643[deg], inferred in 17.20[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.530[m], 0.741[deg], inferred in 23.41[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.664[m], 1.768[deg], inferred in 17.44[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.626[m], 2.892[deg], inferred in 17.10[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.674[m], 2.159[deg], inferred in 20.31[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.015[m], 1.592[deg], inferred in 21.21[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.558[m], 1.590[deg], inferred in 20.99[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.878[m], 2.932[deg], inferred in 21.06[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.370[m], 2.591[deg], inferred in 20.63[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.462[m], 0.566[deg], inferred in 20.17[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.311[m], 0.485[deg], inferred in 17.55[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.148[m], 0.766[deg], inferred in 17.20[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.097[m], 1.278[deg], inferred in 25.10[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.657[m], 0.875[deg], inferred in 20.64[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.156[m], 3.845[deg], inferred in 34.18[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.531[m], 3.221[deg], inferred in 21.84[ms]
+[24-01-21 20:50] [INFO] - Pose error: 6.489[m], 9.969[deg], inferred in 20.53[ms]
+[24-01-21 20:50] [INFO] - Pose error: 2.630[m], 8.778[deg], inferred in 21.67[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.462[m], 6.813[deg], inferred in 19.94[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.038[m], 6.536[deg], inferred in 28.63[ms]
+[24-01-21 20:50] [INFO] - Pose error: 10.110[m], 13.249[deg], inferred in 18.80[ms]
+[24-01-21 20:50] [INFO] - Pose error: 4.113[m], 17.999[deg], inferred in 20.89[ms]
+[24-01-21 20:50] [INFO] - Pose error: 8.134[m], 16.970[deg], inferred in 21.84[ms]
+[24-01-21 20:50] [INFO] - Pose error: 10.372[m], 17.661[deg], inferred in 20.47[ms]
+[24-01-21 20:50] [INFO] - Pose error: 9.139[m], 13.613[deg], inferred in 21.52[ms]
+[24-01-21 20:50] [INFO] - Pose error: 6.721[m], 14.525[deg], inferred in 19.70[ms]
+[24-01-21 20:50] [INFO] - Pose error: 8.579[m], 12.664[deg], inferred in 17.70[ms]
+[24-01-21 20:50] [INFO] - Pose error: 8.191[m], 16.027[deg], inferred in 17.61[ms]
+[24-01-21 20:50] [INFO] - Pose error: 5.972[m], 9.065[deg], inferred in 18.13[ms]
+[24-01-21 20:50] [INFO] - Pose error: 2.117[m], 1.843[deg], inferred in 16.89[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.881[m], 0.217[deg], inferred in 35.04[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.339[m], 0.573[deg], inferred in 23.78[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.473[m], 2.192[deg], inferred in 19.73[ms]
+[24-01-21 20:50] [INFO] - Pose error: 6.726[m], 8.611[deg], inferred in 21.09[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.916[m], 1.096[deg], inferred in 19.85[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.891[m], 1.498[deg], inferred in 30.69[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.983[m], 2.473[deg], inferred in 17.55[ms]
+[24-01-21 20:50] [INFO] - Pose error: 2.390[m], 1.230[deg], inferred in 16.52[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.557[m], 7.436[deg], inferred in 17.41[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.162[m], 3.197[deg], inferred in 30.70[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.477[m], 2.285[deg], inferred in 37.99[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.650[m], 2.409[deg], inferred in 32.56[ms]
+[24-01-21 20:50] [INFO] - Pose error: 2.476[m], 8.106[deg], inferred in 19.62[ms]
+[24-01-21 20:50] [INFO] - Pose error: 0.976[m], 8.383[deg], inferred in 19.49[ms]
+[24-01-21 20:50] [INFO] - Pose error: 2.035[m], 7.414[deg], inferred in 19.49[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.858[m], 6.018[deg], inferred in 16.19[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.530[m], 5.827[deg], inferred in 16.34[ms]
+[24-01-21 20:50] [INFO] - Pose error: 1.753[m], 4.791[deg], inferred in 16.51[ms]
+[24-01-21 20:50] [INFO] - Pose error: 4.455[m], 7.194[deg], inferred in 19.94[ms]
+[24-01-21 20:50] [INFO] - Performance of /home/ronf/git/transposenet/out/kings_0/run_20_01_21_23_47_final.pth on /home/ronf/git/segpose/datasets/cambridge/sub_scenes/abs_cambridge_pose_sorted.csv_KingsCollege_MS_3_pose_test_0.csv
+[24-01-21 20:50] [INFO] - Median pose error: 1.068[m], 3.536[deg]
+[24-01-21 20:50] [INFO] - Mean inference time:21.39[ms]
