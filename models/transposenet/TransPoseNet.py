@@ -50,12 +50,13 @@ class TransPoseNet(nn.Module):
         # =========================================
         # Hypernetwork
         # =========================================
+        self.hidden_dim = 256
         self.hypernet_t = Transformer(config)
-        self.hypernet_t_fc_h = nn.Linear(decoder_dim, 512 * (decoder_dim + 1))
-        self.hypernet_t_fc_o = nn.Linear(decoder_dim, 3 * (512 + 1))
+        self.hypernet_t_fc_h = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
+        self.hypernet_t_fc_o = nn.Linear(decoder_dim, 3 * (self.hidden_dim + 1))
         self.hypernet_rot = Transformer(config)
-        self.hypernet_rot_fc_h = nn.Linear(decoder_dim, 512 * (decoder_dim + 1))
-        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * (512 + 1))
+        self.hypernet_rot_fc_h = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
+        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * (self.hidden_dim + 1))
 
         # The learned pose token for position (t) and orientation (rot)
         self.hypernet_token_embed_t = nn.Parameter(torch.zeros((1, decoder_dim)), requires_grad=True)
@@ -69,8 +70,8 @@ class TransPoseNet(nn.Module):
         # Regressors
         # =========================================
         # Regressors for position (t) and orientation (rot)
-        self.regressor_head_t = PoseRegressor(decoder_dim, 3)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, 4, self.use_prior)
+        self.regressor_head_t = PoseRegressor(decoder_dim, self.hidden_dim, 3)
+        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hidden_dim, 4, self.use_prior)
 
     def forward_transformers(self, data):
         """
@@ -163,7 +164,7 @@ class TransPoseNet(nn.Module):
 class PoseRegressor(nn.Module):
     """ A simple MLP to regress a pose component"""
 
-    def __init__(self, decoder_dim, output_dim, use_prior=False):
+    def __init__(self, decoder_dim, hidden_dim, output_dim, use_prior=False):
         """
         decoder_dim: (int) the input dimension
         output_dim: (int) the output dimension
@@ -172,7 +173,7 @@ class PoseRegressor(nn.Module):
         super().__init__()
         self.decoder_dim = decoder_dim
         self.output_dim = output_dim
-        self.hidden_dim = 512
+        self.hidden_dim = hidden_dim
 
     @staticmethod
     def batched_linear_layer(x, wb):

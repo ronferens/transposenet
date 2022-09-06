@@ -12,7 +12,7 @@ from datasets.CameraPoseDataset import CameraPoseDataset
 from models.pose_losses import CameraPoseLoss
 from models.pose_regressors import get_model
 from os.path import join
-
+from torch.utils.tensorboard import SummaryWriter
 
 
 if __name__ == "__main__":
@@ -36,6 +36,9 @@ if __name__ == "__main__":
         logging.info("Experiment details: {}".format(args.experiment))
     logging.info("Using dataset: {}".format(args.dataset_path))
     logging.info("Using labels file: {}".format(args.labels_file))
+
+    # Init Tensorboard
+    writer = SummaryWriter()
 
     # Read configuration
     with open('config.json', "r") as read_file:
@@ -172,15 +175,21 @@ if __name__ == "__main__":
                                                                         batch_idx+1, epoch+1, (running_loss/n_samples),
                                                                         posit_err.mean().item(),
                                                                         orient_err.mean().item()))
+                    writer.add_scalar("Loss/train", (running_loss/n_samples), (batch_idx + 1))
+                    writer.add_scalar("Pose/translation_train", posit_err.mean().item(), (batch_idx + 1))
+                    writer.add_scalar("Pose/orientation_train", orient_err.mean().item(), (batch_idx + 1))
             # Save checkpoint
             if (epoch % n_freq_checkpoint) == 0 and epoch > 0:
                 torch.save(model.state_dict(), checkpoint_prefix + '_checkpoint-{}.pth'.format(epoch))
 
             # Scheduler update
             scheduler.step()
+            writer.add_scalar("Loss/lr", scheduler.get_lr()[0])
 
         logging.info('Training completed')
         torch.save(model.state_dict(), checkpoint_prefix + '_final.pth'.format(epoch))
+        writer.flush()
+        writer.close()
 
         # Plot the loss function
         loss_fig_path = checkpoint_prefix + "_loss_fig.png"
