@@ -119,6 +119,7 @@ if __name__ == "__main__":
         n_freq_print = config.get("n_freq_print")
         n_freq_checkpoint = config.get("n_freq_checkpoint")
         n_epochs = config.get("n_epochs")
+        start_save_epoch = config.get('start_save_epoch')
 
         # Train
         checkpoint_prefix = join(utils.create_output_dir('out'),utils.get_stamp_from_log())
@@ -179,7 +180,7 @@ if __name__ == "__main__":
                     writer.add_scalar("Pose/translation_train", posit_err.mean().item(), (batch_idx + 1))
                     writer.add_scalar("Pose/orientation_train", orient_err.mean().item(), (batch_idx + 1))
             # Save checkpoint
-            if (epoch % n_freq_checkpoint) == 0 and epoch > 0:
+            if (epoch % n_freq_checkpoint) == 0 and epoch > start_save_epoch:
                 torch.save(model.state_dict(), checkpoint_prefix + '_checkpoint-{}.pth'.format(epoch))
 
             # Scheduler update

@@ -1,7 +1,8 @@
 {
 	"general": {
 		"n_freq_print": 5,
-		"n_freq_checkpoint": 10,
+		"n_freq_checkpoint": 25,
+		"start_save_epoch": 400,
 		"n_workers": 4,
 		"device_id": "cuda:0"
 	},
@@ -23,7 +24,7 @@
 		"learnable": true,
 		"s_x": -3,
 		"s_q": -6.5,
-		"lr": 1e-4,
+		"lr": 1e-3,
 		"norm": 2,
 		"weight_decay": 1e-4,
 		"eps": 1e-10,
