@@ -50,12 +50,14 @@ class TransPoseNet(nn.Module):
         # =========================================
         # Hypernetwork
         # =========================================
-        self.hidden_dim = 256
+        self.hidden_dim = config.get('hidden_dim')
         self.hypernet_t = Transformer(config)
-        self.hypernet_t_fc_h = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
+        self.hypernet_t_fc_h1 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
+        self.hypernet_t_fc_h2 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
         self.hypernet_t_fc_o = nn.Linear(decoder_dim, 3 * (self.hidden_dim + 1))
         self.hypernet_rot = Transformer(config)
-        self.hypernet_rot_fc_h = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
+        self.hypernet_rot_fc_h1 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
+        self.hypernet_rot_fc_h2 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
         self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * (self.hidden_dim + 1))
 
         # The learned pose token for position (t) and orientation (rot)
@@ -108,20 +110,24 @@ class TransPoseNet(nn.Module):
         local_t_res = self.hypernet_t(self.hypernet_input_proj_t(src_t), mask_t, pos[0],
                                       self.hypernet_token_embed_t)
         global_hyper_t = local_t_res[:, 0, :]
-        w_t_h = F.gelu(self.hypernet_t_fc_h(global_hyper_t))
+        w_t_h1 = F.gelu(self.hypernet_t_fc_h1(global_hyper_t))
+        w_t_h2 = F.gelu(self.hypernet_t_fc_h2(global_hyper_t))
         w_t_o = F.gelu(self.hypernet_t_fc_o(global_hyper_t))
 
         local_rot_res = self.hypernet_rot(self.hypernet_input_proj_rot(src_rot), mask_rot, pos[1],
                                           self.hypernet_token_embed_rot)
         global_hyper_rot = local_rot_res[:, 0, :]
-        w_rot_h = F.gelu(self.hypernet_rot_fc_h(global_hyper_rot))
+        w_rot_h1 = F.gelu(self.hypernet_rot_fc_h1(global_hyper_rot))
+        w_rot_h2 = F.gelu(self.hypernet_rot_fc_h2(global_hyper_rot))
         w_rot_o = F.gelu(self.hypernet_rot_fc_o(global_hyper_rot))
 
         return {'global_desc_t':global_desc_t,
                 'global_desc_rot':global_desc_rot,
-                'w_t_h': w_t_h,
+                'w_t_h1': w_t_h1,
+                'w_t_h2': w_t_h2,
                 'w_t_o': w_t_o,
-                'w_rot_h': w_rot_h,
+                'w_rot_h1': w_rot_h1,
+                'w_rot_h2': w_rot_h2,
                 'w_rot_o': w_rot_o
                 }
 
@@ -136,13 +142,15 @@ class TransPoseNet(nn.Module):
         global_desc_rot = transformers_res.get('global_desc_rot')
 
         x_t = self.regressor_head_t(global_desc_t,
-                                    transformers_res.get('w_t_h'),
+                                    transformers_res.get('w_t_h1'),
+                                    transformers_res.get('w_t_h2'),
                                     transformers_res.get('w_t_o'))
         if self.use_prior:
             global_desc_rot = torch.cat((global_desc_t, global_desc_rot), dim=1)
 
         x_rot = self.regressor_head_rot(global_desc_rot,
-                                        transformers_res.get('w_rot_h'),
+                                        transformers_res.get('w_rot_h1'),
+                                        transformers_res.get('w_rot_h2'),
                                         transformers_res.get('w_rot_o'))
         expected_pose = torch.cat((x_t, x_rot), dim=1)
         return {'pose': expected_pose}
@@ -174,6 +182,8 @@ class PoseRegressor(nn.Module):
         self.decoder_dim = decoder_dim
         self.output_dim = output_dim
         self.hidden_dim = hidden_dim
+        self.prelu_fc1 = nn.PReLU()
+        self.prelu_fc2 = nn.PReLU()
 
     @staticmethod
     def batched_linear_layer(x, wb):
@@ -182,13 +192,16 @@ class PoseRegressor(nn.Module):
         linear_res = torch.matmul(torch.cat([x, one], dim=-1).unsqueeze(1), wb)
         return linear_res.squeeze(1)
 
-    def forward(self, x, weights_h, weights_o):
+    def forward(self, x, weights_h1, weights_h2, weights_o):
         """
         Forward pass
         """
-        x = F.gelu(self.batched_linear_layer(x, weights_h.view(weights_h.shape[0],
-                                                               (self.decoder_dim + 1),
-                                                               self.hidden_dim)))
+        x = self.prelu_fc1(self.batched_linear_layer(x, weights_h1.view(weights_h1.shape[0],
+                                                                        (self.decoder_dim + 1),
+                                                                        self.hidden_dim)))
+        x = self.prelu_fc2(self.batched_linear_layer(x, weights_h2.view(weights_h2.shape[0],
+                                                                        (self.decoder_dim + 1),
+                                                                        self.hidden_dim)))
         x = self.batched_linear_layer(x, weights_o.view(weights_o.shape[0],
                                                         (self.hidden_dim + 1),
                                                         self.output_dim))
