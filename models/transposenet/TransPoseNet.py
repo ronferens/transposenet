@@ -123,12 +123,8 @@ class TransPoseNet(nn.Module):
 
         return {'global_desc_t':global_desc_t,
                 'global_desc_rot':global_desc_rot,
-                'w_t_h1': w_t_h1,
-                'w_t_h2': w_t_h2,
-                'w_t_o': w_t_o,
-                'w_rot_h1': w_rot_h1,
-                'w_rot_h2': w_rot_h2,
-                'w_rot_o': w_rot_o
+                'w_t': {'w_h1': w_t_h1, 'w_h2': w_t_h2, 'w_o': w_t_o},
+                'w_rot': {'w_h1': w_rot_h1, 'w_h2': w_rot_h2, 'w_o': w_rot_o}
                 }
 
     def forward_heads(self, transformers_res):
@@ -141,17 +137,11 @@ class TransPoseNet(nn.Module):
         global_desc_t = transformers_res.get('global_desc_t')
         global_desc_rot = transformers_res.get('global_desc_rot')
 
-        x_t = self.regressor_head_t(global_desc_t,
-                                    transformers_res.get('w_t_h1'),
-                                    transformers_res.get('w_t_h2'),
-                                    transformers_res.get('w_t_o'))
+        x_t = self.regressor_head_t(global_desc_t, transformers_res.get('w_t'))
         if self.use_prior:
             global_desc_rot = torch.cat((global_desc_t, global_desc_rot), dim=1)
 
-        x_rot = self.regressor_head_rot(global_desc_rot,
-                                        transformers_res.get('w_rot_h1'),
-                                        transformers_res.get('w_rot_h2'),
-                                        transformers_res.get('w_rot_o'))
+        x_rot = self.regressor_head_rot(global_desc_rot, transformers_res.get('w_rot'))
         expected_pose = torch.cat((x_t, x_rot), dim=1)
         return {'pose': expected_pose}
 
@@ -192,17 +182,17 @@ class PoseRegressor(nn.Module):
         linear_res = torch.matmul(torch.cat([x, one], dim=-1).unsqueeze(1), wb)
         return linear_res.squeeze(1)
 
-    def forward(self, x, weights_h1, weights_h2, weights_o):
+    def forward(self, x, weights):
         """
         Forward pass
         """
-        x = self.prelu_fc1(self.batched_linear_layer(x, weights_h1.view(weights_h1.shape[0],
-                                                                        (self.decoder_dim + 1),
-                                                                        self.hidden_dim)))
-        x = self.prelu_fc2(self.batched_linear_layer(x, weights_h2.view(weights_h2.shape[0],
-                                                                        (self.decoder_dim + 1),
-                                                                        self.hidden_dim)))
-        x = self.batched_linear_layer(x, weights_o.view(weights_o.shape[0],
-                                                        (self.hidden_dim + 1),
-                                                        self.output_dim))
+        x = self.prelu_fc1(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
+                                                                                 (self.decoder_dim + 1),
+                                                                                 self.hidden_dim)))
+        x = self.prelu_fc2(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
+                                                                                 (self.decoder_dim + 1),
+                                                                                 self.hidden_dim)))
+        x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
+                                                                 (self.hidden_dim + 1),
+                                                                 self.output_dim))
         return x
