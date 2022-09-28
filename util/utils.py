@@ -10,7 +10,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn.functional as F
 from torchvision import transforms
+from omegaconf import OmegaConf
 
+
+##########################
 # Logging and output utils
 ##########################
 def get_stamp_from_log():
@@ -18,7 +21,7 @@ def get_stamp_from_log():
     Get the time stamp from the log file
     :return:
     """
-    return split(logging.getLogger().handlers[0].baseFilename)[-1].replace(".log","")
+    return split(logging.getLogger().handlers[0].baseFilename)[-1].replace(".log", "")
 
 
 def create_output_dir(name):
@@ -33,7 +36,12 @@ def create_output_dir(name):
     return out_dir
 
 
-def init_logger():
+def save_config_to_output_dir(path, config) -> None:
+    with open(join(path, "config.yaml"), "w") as f:
+        OmegaConf.save(config, f)
+
+
+def init_logger(path: str = 'out') -> str:
     """
     Initialize the logger and create a time stamp for the file
     """
@@ -42,19 +50,20 @@ def init_logger():
     with open(join(path, 'log_config.json')) as json_file:
         log_config_dict = json.load(json_file)
         filename = log_config_dict.get('handlers').get('file_handler').get('filename')
-        filename = ''.join([filename, "_", time.strftime("%d_%m_%y_%H_%M", time.localtime()), ".log"])
+        filename = ''.join([filename, "_", time.strftime("%d_%m_%y_%H_%M", time.localtime())])
 
         # Creating logs' folder is needed
-        log_path = create_output_dir('out')
+        log_path = create_output_dir(join('out', filename))
 
-        log_config_dict.get('handlers').get('file_handler')['filename'] = join(log_path, filename)
+        log_config_dict.get('handlers').get('file_handler')['filename'] = join(log_path, f'{filename}.log')
         logging.config.dictConfig(log_config_dict)
 
         # disable external modules' loggers (level warning and below)
         logging.getLogger(PIL.__name__).setLevel(logging.WARNING)
+        return log_path
 
 
-
+##########################
 # Evaluation utils
 ##########################
 def pose_err(est_pose, gt_pose):
@@ -72,6 +81,8 @@ def pose_err(est_pose, gt_pose):
     orient_err = 2 * torch.acos(torch.abs(inner_prod)) * 180 / np.pi
     return posit_err, orient_err
 
+
+##########################
 # Plotting utils
 ##########################
 def plot_loss_func(sample_count, loss_vals, loss_fig_path):
@@ -83,7 +94,10 @@ def plot_loss_func(sample_count, loss_vals, loss_fig_path):
     plt.ylabel('Loss')
     plt.savefig(loss_fig_path)
 
+
+##########################
 # Augmentations
+##########################
 train_transforms = {
     'baseline': transforms.Compose([transforms.ToPILImage(),
                                     transforms.Resize(256),
@@ -91,7 +105,7 @@ train_transforms = {
                                     transforms.ColorJitter(0.5, 0.5, 0.5, 0.2),
                                     transforms.ToTensor(),
                                     transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                             std=[0.229, 0.224, 0.225])])
+                                                         std=[0.229, 0.224, 0.225])])
 
 }
 test_transforms = {
@@ -100,9 +114,6 @@ test_transforms = {
                                     transforms.CenterCrop(224),
                                     transforms.ToTensor(),
                                     transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                             std=[0.229, 0.224, 0.225])
-        ])
+                                                         std=[0.229, 0.224, 0.225])
+                                    ])
 }
-
-
-
