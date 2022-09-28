@@ -10,8 +10,8 @@ from .pencoder import build_position_encoding, NestedTensor
 from typing import Dict, List
 import torch
 
-class BackboneBase(nn.Module):
 
+class BackboneBase(nn.Module):
     def __init__(self, backbone: nn.Module, reduction):
         super().__init__()
         self.body = backbone
@@ -54,12 +54,13 @@ class Joiner(nn.Sequential):
                 pos.append([p_emb.to(x.tensors.dtype), m_emb.to(x.tensors.dtype)])
             else:
                 pos.append(ret.to(x.tensors.dtype))
-
         return out, pos
 
-def build_backbone(config):
+
+def build_backbone(config) -> nn.Module:
     position_embedding = build_position_encoding(config)
-    backbone = Backbone(config.get("backbone"), config.get("reduction"))
+    reduction = [config.get("reduction")['t'], config.get("reduction")['q']]
+    backbone = Backbone(config.get("backbone"), reduction)
     model = Joiner(backbone, position_embedding)
     model.num_channels = backbone.num_channels
     return model

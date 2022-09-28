@@ -14,40 +14,23 @@ from models.pose_regressors import get_model
 from os.path import join
 from torch.utils.tensorboard import SummaryWriter
 
+import hydra
+from omegaconf import OmegaConf
 
-if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("model_name",
-                            help="name of model to create (e.g. posenet, transposenet")
-    arg_parser.add_argument("mode", help="train or eval")
-    arg_parser.add_argument("backbone_path", help="path to backbone .pth - e.g. efficientnet")
-    arg_parser.add_argument("dataset_path", help="path to the physical location of the dataset")
-    arg_parser.add_argument("labels_file", help="path to a file mapping images to their poses")
-    arg_parser.add_argument("--checkpoint_path",
-                            help="path to a pre-trained model (should match the model indicated in model_name")
-    arg_parser.add_argument("--experiment", help="a short string to describe the experiment/commit used")
 
-    args = arg_parser.parse_args()
+@hydra.main(version_base=None, config_path="config", config_name="config")
+def main(cfg) -> None:
     utils.init_logger()
 
     # Record execution details
-    logging.info("Start {} with {}".format(args.model_name, args.mode))
-    if args.experiment is not None:
-        logging.info("Experiment details: {}".format(args.experiment))
-    logging.info("Using dataset: {}".format(args.dataset_path))
-    logging.info("Using labels file: {}".format(args.labels_file))
+    logging.info("Start {} with {}".format(cfg.inputs.model_name, cfg.inputs.mode))
+    if cfg.inputs.experiment is not None:
+        logging.info("Experiment details: {}".format(cfg.inputs.experiment))
+    logging.info("Using dataset: {}".format(cfg.inputs.dataset_path))
+    logging.info("Using labels file: {}".format(cfg.inputs.labels_file))
 
     # Init Tensorboard
     writer = SummaryWriter()
-
-    # Read configuration
-    with open('config.json', "r") as read_file:
-        config = json.load(read_file)
-    model_params = config[args.model_name]
-    general_params = config['general']
-    config = {**model_params, **general_params}
-    logging.info("Running with configuration:\n{}".format(
-        '\n'.join(["\t{}: {}".format(k, v) for k, v in config.items()])))
 
     # Set the seeds and the device
     use_cuda = torch.cuda.is_available()
@@ -58,24 +41,26 @@ if __name__ == "__main__":
     if use_cuda:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        device_id = config.get('device_id')
+        device_id = cfg.general.device_id
     np.random.seed(numpy_seed)
     device = torch.device(device_id)
 
     # Create the model
-    model = get_model(args.model_name, args.backbone_path, config).to(device)
-    # Load the checkpoint if needed
-    if args.checkpoint_path:
-        model.load_state_dict(torch.load(args.checkpoint_path, map_location=device_id))
-        logging.info("Initializing from checkpoint: {}".format(args.checkpoint_path))
+    model_config = OmegaConf.to_container(cfg[cfg.inputs.model_name])
+    model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config).to(device)
 
-    if args.mode == 'train':
+    # Load the checkpoint if needed
+    if cfg.inputs.checkpoint_path:
+        model.load_state_dict(torch.load(cfg.inputs.checkpoint_path, map_location=device_id))
+        logging.info("Initializing from checkpoint: {}".format(cfg.inputs.checkpoint_path))
+
+    if cfg.inputs.mode == 'train':
         # Set to train mode
         model.train()
 
         # Freeze parts of the model if indicated
-        freeze = config.get("freeze")
-        freeze_exclude_phrase = config.get("freeze_exclude_phrase")
+        freeze = cfg[cfg.inputs.model_name].freeze
+        freeze_exclude_phrase = cfg[cfg.inputs.model_name].freeze_exclude_phrase
         if isinstance(freeze_exclude_phrase, str):
             freeze_exclude_phrase = [freeze_exclude_phrase]
         if freeze:
@@ -86,43 +71,38 @@ if __name__ == "__main__":
                         freeze_param = False
                         break
                 if freeze_param:
-                        parameter.requires_grad_(False)
+                    parameter.requires_grad_(False)
 
         # Set the loss
-        pose_loss = CameraPoseLoss(config).to(device)
-        nll_loss = torch.nn.NLLLoss()
+        loss_config = OmegaConf.to_container(cfg[cfg.inputs.model_name].loss)
+        pose_loss = CameraPoseLoss(loss_config).to(device)
 
         # Set the optimizer and scheduler
         params = list(model.parameters()) + list(pose_loss.parameters())
         optim = torch.optim.Adam(filter(lambda p: p.requires_grad, params),
-                                  lr=config.get('lr'),
-                                  eps=config.get('eps'),
-                                  weight_decay=config.get('weight_decay'))
+                                 lr=cfg[cfg.inputs.model_name].lr,
+                                 eps=cfg[cfg.inputs.model_name].eps,
+                                 weight_decay=cfg[cfg.inputs.model_name].weight_decay)
         scheduler = torch.optim.lr_scheduler.StepLR(optim,
-                                                    step_size=config.get('lr_scheduler_step_size'),
-                                                    gamma=config.get('lr_scheduler_gamma'))
+                                                    step_size=cfg[cfg.inputs.model_name].lr_scheduler_step_size,
+                                                    gamma=cfg[cfg.inputs.model_name].lr_scheduler_gamma)
 
         # Set the dataset and data loader
-        no_augment = config.get("no_augment")
-        if no_augment:
-            transform = utils.test_transforms.get('baseline')
-        else:
-            transform = utils.train_transforms.get('baseline')
-
-        dataset = CameraPoseDataset(args.dataset_path, args.labels_file, transform)
-        loader_params = {'batch_size': config.get('batch_size'),
-                                  'shuffle': True,
-                                  'num_workers': config.get('n_workers')}
+        transform = utils.train_transforms.get('baseline')
+        dataset = CameraPoseDataset(cfg.inputs.dataset_path, cfg.inputs.labels_file, transform)
+        loader_params = {'batch_size': cfg.general.batch_size,
+                         'shuffle': True,
+                         'num_workers': cfg.general.n_workers}
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
         # Get training details
-        n_freq_print = config.get("n_freq_print")
-        n_freq_checkpoint = config.get("n_freq_checkpoint")
-        n_epochs = config.get("n_epochs")
-        start_save_epoch = config.get('start_save_epoch')
+        n_freq_print = cfg.general.n_freq_print
+        n_freq_checkpoint = cfg.general.n_freq_checkpoint
+        n_epochs = cfg.general.n_epochs
+        start_save_epoch = cfg.general.start_save_epoch
 
         # Train
-        checkpoint_prefix = join(utils.create_output_dir('out'),utils.get_stamp_from_log())
+        checkpoint_prefix = join(utils.create_output_dir('out'), utils.get_stamp_from_log())
         n_total_samples = 0.0
         loss_vals = []
         sample_count = []
@@ -140,7 +120,7 @@ if __name__ == "__main__":
                 n_samples += batch_size
                 n_total_samples += batch_size
 
-                if freeze: # For TransPoseNet
+                if freeze:  # For TransPoseNet
                     model.eval()
                     with torch.no_grad():
                         transformers_res = model.forward_transformers(minibatch)
@@ -173,10 +153,10 @@ if __name__ == "__main__":
                     posit_err, orient_err = utils.pose_err(est_pose.detach(), gt_pose.detach())
                     logging.info("[Batch-{}/Epoch-{}] running camera pose loss: {:.3f}, "
                                  "camera pose error: {:.2f}[m], {:.2f}[deg]".format(
-                                                                        batch_idx+1, epoch+1, (running_loss/n_samples),
-                                                                        posit_err.mean().item(),
-                                                                        orient_err.mean().item()))
-                    writer.add_scalar("Loss/train", (running_loss/n_samples), n_total_samples)
+                        batch_idx + 1, epoch + 1, (running_loss / n_samples),
+                        posit_err.mean().item(),
+                        orient_err.mean().item()))
+                    writer.add_scalar("Loss/train", (running_loss / n_samples), n_total_samples)
                     writer.add_scalar("Pose/translation_train", posit_err.mean().item(), n_total_samples)
                     writer.add_scalar("Pose/orientation_train", orient_err.mean().item(), n_total_samples)
             # Save checkpoint
@@ -196,16 +176,16 @@ if __name__ == "__main__":
         loss_fig_path = checkpoint_prefix + "_loss_fig.png"
         utils.plot_loss_func(sample_count, loss_vals, loss_fig_path)
 
-    else: # Test
+    else:  # Test
         # Set to eval mode
         model.eval()
 
         # Set the dataset and data loader
         transform = utils.test_transforms.get('baseline')
-        dataset = CameraPoseDataset(args.dataset_path, args.labels_file, transform)
+        dataset = CameraPoseDataset(cfg.inputs.dataset_path, cfg.inputs.labels_file, transform)
         loader_params = {'batch_size': 1,
                          'shuffle': False,
-                         'num_workers': config.get('n_workers')}
+                         'num_workers': cfg.general.n_workers}
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
         stats = np.zeros((len(dataloader.dataset), 3))
@@ -228,12 +208,17 @@ if __name__ == "__main__":
                 # Collect statistics
                 stats[i, 0] = posit_err.item()
                 stats[i, 1] = orient_err.item()
-                stats[i, 2] = (toc - tic)*1000
+                stats[i, 2] = (toc - tic) * 1000
 
                 logging.info("Pose error: {:.3f}[m], {:.3f}[deg], inferred in {:.2f}[ms]".format(
-                    stats[i, 0],  stats[i, 1],  stats[i, 2]))
+                    stats[i, 0], stats[i, 1], stats[i, 2]))
 
         # Record overall statistics
-        logging.info("Performance of {} on {}".format(args.checkpoint_path, args.labels_file))
-        logging.info("Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.nanmedian(stats[:, 0]), np.nanmedian(stats[:, 1])))
+        logging.info("Performance of {} on {}".format(cfg.inputs.checkpoint_path, cfg.inputs.labels_file))
+        logging.info(
+            "Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.nanmedian(stats[:, 0]), np.nanmedian(stats[:, 1])))
         logging.info("Mean inference time:{:.2f}[ms]".format(np.mean(stats[:, 2])))
+
+
+if __name__ == "__main__":
+    main()
