@@ -9,7 +9,7 @@ inputs:
   models_to_evaluate: null
 
 general:
-  n_freq_print: 1
+  n_freq_print: 5
   n_workers: 4
   device_id: 'cuda:0'
 
