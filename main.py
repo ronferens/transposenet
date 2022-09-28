@@ -1,10 +1,5 @@
-"""
-Entry point training and testing TransPoseNet
-"""
-import argparse
 import torch
 import numpy as np
-import json
 import logging
 from util import utils
 import time
@@ -13,14 +8,16 @@ from models.pose_losses import CameraPoseLoss
 from models.pose_regressors import get_model
 from os.path import join
 from torch.utils.tensorboard import SummaryWriter
-
 import hydra
 from omegaconf import OmegaConf
 
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
 def main(cfg) -> None:
-    utils.init_logger()
+
+    # Initiate logger and output folder for the experiment
+    log_path = utils.init_logger()
+    utils.save_config_to_output_dir(log_path, cfg)
 
     # Record execution details
     logging.info("Start {} with {}".format(cfg.inputs.model_name, cfg.inputs.mode))
@@ -29,7 +26,7 @@ def main(cfg) -> None:
     logging.info("Using dataset: {}".format(cfg.inputs.dataset_path))
     logging.info("Using labels file: {}".format(cfg.inputs.labels_file))
 
-    # Init Tensorboard
+    # Init Tensorboard and set experiment timestamp
     writer = SummaryWriter()
 
     # Set the seeds and the device
@@ -102,7 +99,6 @@ def main(cfg) -> None:
         start_save_epoch = cfg.general.start_save_epoch
 
         # Train
-        checkpoint_prefix = join(utils.create_output_dir('out'), utils.get_stamp_from_log())
         n_total_samples = 0.0
         loss_vals = []
         sample_count = []
@@ -160,20 +156,21 @@ def main(cfg) -> None:
                     writer.add_scalar("Pose/translation_train", posit_err.mean().item(), n_total_samples)
                     writer.add_scalar("Pose/orientation_train", orient_err.mean().item(), n_total_samples)
             # Save checkpoint
-            if (epoch % n_freq_checkpoint) == 0 and epoch > start_save_epoch:
-                torch.save(model.state_dict(), checkpoint_prefix + '_checkpoint-{}.pth'.format(epoch))
+            if (epoch % n_freq_checkpoint) == 0 and epoch >= start_save_epoch:
+                torch.save(model.state_dict(),
+                           join(log_path, f'{utils.get_stamp_from_log()}_checkpoint-{epoch}.pth'))
 
             # Scheduler update
             scheduler.step()
             writer.add_scalar("Loss/lr", scheduler.get_lr()[0], epoch)
 
         logging.info('Training completed')
-        torch.save(model.state_dict(), checkpoint_prefix + '_final.pth'.format(epoch))
+        torch.save(model.state_dict(), join(log_path, f'{utils.get_stamp_from_log()}_final.pth'.format(epoch)))
         writer.flush()
         writer.close()
 
         # Plot the loss function
-        loss_fig_path = checkpoint_prefix + "_loss_fig.png"
+        loss_fig_path = join(log_path, f'{utils.get_stamp_from_log()}_loss_fig.png')
         utils.plot_loss_func(sample_count, loss_vals, loss_fig_path)
 
     else:  # Test
