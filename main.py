@@ -176,16 +176,16 @@ if __name__ == "__main__":
                                                                         batch_idx+1, epoch+1, (running_loss/n_samples),
                                                                         posit_err.mean().item(),
                                                                         orient_err.mean().item()))
-                    writer.add_scalar("Loss/train", (running_loss/n_samples), (batch_idx + 1))
-                    writer.add_scalar("Pose/translation_train", posit_err.mean().item(), (batch_idx + 1))
-                    writer.add_scalar("Pose/orientation_train", orient_err.mean().item(), (batch_idx + 1))
+                    writer.add_scalar("Loss/train", (running_loss/n_samples), n_total_samples)
+                    writer.add_scalar("Pose/translation_train", posit_err.mean().item(), n_total_samples)
+                    writer.add_scalar("Pose/orientation_train", orient_err.mean().item(), n_total_samples)
             # Save checkpoint
             if (epoch % n_freq_checkpoint) == 0 and epoch > start_save_epoch:
                 torch.save(model.state_dict(), checkpoint_prefix + '_checkpoint-{}.pth'.format(epoch))
 
             # Scheduler update
             scheduler.step()
-            writer.add_scalar("Loss/lr", scheduler.get_lr()[0])
+            writer.add_scalar("Loss/lr", scheduler.get_lr()[0], epoch)
 
         logging.info('Training completed')
         torch.save(model.state_dict(), checkpoint_prefix + '_final.pth'.format(epoch))
