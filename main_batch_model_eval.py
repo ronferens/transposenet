@@ -31,18 +31,11 @@ def main(cfg) -> None:
     utils.init_logger()
 
     # Record execution details
-    logging.info("Running batch evaluation for - {}".format(cfg.inputs.model_name))
+    logging.info("Start {} with {}".format(cfg.inputs.model_name, cfg.inputs.mode))
+    if cfg.inputs.experiment is not None:
+        logging.info("Experiment details: {}".format(cfg.inputs.experiment))
     logging.info("Using dataset: {}".format(cfg.inputs.dataset_path))
     logging.info("Using labels file: {}".format(cfg.inputs.labels_file))
-
-    # Read configuration
-    with open("config.json", "r") as read_file:
-        config = json.load(read_file)
-    model_params = config[cfg.inputs.model_name]
-    general_params = config['general']
-    config = {**model_params, **general_params}
-    logging.info("Running with configuration:\n{}".format(
-        '\n'.join(["\t{}: {}".format(k, v) for k, v in config.items()])))
 
     # Set the seeds and the device
     use_cuda = torch.cuda.is_available()
@@ -96,7 +89,7 @@ def main(cfg) -> None:
         dataset = CameraPoseDataset(cfg.inputs.dataset_path, cfg.inputs.labels_file, transform)
         loader_params = {'batch_size': 1,
                          'shuffle': False,
-                         'num_workers': config.get('n_workers')}
+                         'num_workers': cfg.general.n_workers}
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
         stats = np.zeros((len(dataloader.dataset), 5))
