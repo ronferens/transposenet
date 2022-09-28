@@ -26,15 +26,13 @@ def sort_models_name(models_list):
     return models_list
 
 
-@hydra.main(version_base=None, config_path="config", config_name="config")
+@hydra.main(version_base=None, config_path="config", config_name="cambridge_test")
 def main(cfg) -> None:
     assert cfg.inputs.models_path is not None, 'You must specify the models_path'
     utils.init_logger(outpath=cfg.inputs.models_path, suffix='_batch_eval')
 
     # Record execution details
     logging.info("Start {} with {}".format(cfg.inputs.model_name, cfg.inputs.mode))
-    if cfg.inputs.experiment is not None:
-        logging.info("Experiment details: {}".format(cfg.inputs.experiment))
     logging.info("Using dataset: {}".format(cfg.inputs.dataset_path))
     logging.info("Using labels file: {}".format(cfg.inputs.labels_file))
 
