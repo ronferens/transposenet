@@ -41,7 +41,7 @@ def save_config_to_output_dir(path, config) -> None:
         OmegaConf.save(config, f)
 
 
-def init_logger(path: str = 'out') -> str:
+def init_logger(outpath: str = None, suffix: str = None) -> str:
     """
     Initialize the logger and create a time stamp for the file
     """
@@ -53,8 +53,13 @@ def init_logger(path: str = 'out') -> str:
         filename = ''.join([filename, "_", time.strftime("%d_%m_%y_%H_%M", time.localtime())])
 
         # Creating logs' folder is needed
-        log_path = create_output_dir(join('out', filename))
+        if outpath is not None:
+            log_path = create_output_dir(outpath)
+        else:
+            log_path = create_output_dir(join('out', filename))
 
+        if suffix is not None:
+            filename += suffix
         log_config_dict.get('handlers').get('file_handler')['filename'] = join(log_path, f'{filename}.log')
         logging.config.dictConfig(log_config_dict)
 
