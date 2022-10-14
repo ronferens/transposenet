@@ -5,7 +5,7 @@ inputs:
   dataset_path: '/media/ronf/data/datasets/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
   checkpoint_path: null
-  models_path: null
+  models_path: './out/run_14_10_22_16_07'
   models_to_evaluate: null
 
 general:
@@ -14,9 +14,9 @@ general:
   device_id: 'cuda:0'
 
 transposenet:
-  num_encoder_layers: 4
+  num_encoder_layers: 6
   dim_feedforward: 256
-  hidden_dim: 256
+  hidden_dim: 512
   nheads: 4
   reduction:
     t: 'reduction_4'

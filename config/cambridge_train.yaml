@@ -14,7 +14,7 @@ general:
   n_workers: 4
   device_id: 'cuda:0'
   batch_size: 8
-  n_epochs: 1000
+  n_epochs: 1200
 
 transposenet:
   loss:
@@ -25,9 +25,9 @@ transposenet:
   lr: 1e-4
   weight_decay: 1e-4
   eps: 1e-10
-  lr_scheduler_gamma: 0.5
+  lr_scheduler_gamma: 0.75
   lr_scheduler_step_size: 200
-  num_encoder_layers: 4
+  num_encoder_layers: 6
   dim_feedforward: 256
   hidden_dim: 256
   dropout: 0.1

@@ -50,22 +50,11 @@ class TransPoseNet(nn.Module):
         # Hypernetwork
         # =========================================
         self.hidden_dim = config.get('hidden_dim')
-        self.hypernet_t = Transformer(config)
-        self.hypernet_t_fc_h1 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_t_fc_h2 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_t_fc_o = nn.Linear(decoder_dim, 3 * (self.hidden_dim + 1))
-        self.hypernet_rot = Transformer(config)
-        self.hypernet_rot_fc_h1 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_rot_fc_h2 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * (self.hidden_dim + 1))
-
-        # The learned pose token for position (t) and orientation (rot)
-        self.hypernet_token_embed_t = nn.Parameter(torch.zeros((1, decoder_dim)), requires_grad=True)
-        self.hypernet_token_embed_rot = nn.Parameter(torch.zeros((1, decoder_dim)), requires_grad=True)
-
-        # The projection of the activation map before going into the Transformer's encoder
-        self.hypernet_input_proj_t = nn.Conv2d(self.backbone.num_channels[0], decoder_dim, kernel_size=1)
-        self.hypernet_input_proj_rot = nn.Conv2d(self.backbone.num_channels[1], decoder_dim, kernel_size=1)
+        self.hypernet_fc = nn.Linear(1000, self.hidden_dim)
+        self.hypernet_t_fc_h1 = nn.Linear(self.hidden_dim, self.hidden_dim * (decoder_dim + 1))
+        self.hypernet_t_fc_o = nn.Linear(self.hidden_dim, 3 * (self.hidden_dim + 1))
+        self.hypernet_rot_fc_h1 = nn.Linear(self.hidden_dim, self.hidden_dim * (decoder_dim + 1))
+        self.hypernet_rot_fc_o = nn.Linear(self.hidden_dim, 4 * (self.hidden_dim + 1))
 
         # =========================================
         # Regressors
@@ -90,7 +79,7 @@ class TransPoseNet(nn.Module):
             samples = nested_tensor_from_tensor_list(samples)
 
         # Extract the features and the position embedding from the visual backbone
-        features, pos = self.backbone(samples)
+        features, pos, representation = self.backbone(samples)
 
         src_t, mask_t = features[0].decompose()
         src_rot, mask_rot = features[1].decompose()
@@ -106,24 +95,19 @@ class TransPoseNet(nn.Module):
         global_desc_t = local_descs_t[:, 0, :]
         global_desc_rot = local_descs_rot[:, 0, :]
 
-        local_t_res = self.hypernet_t(self.hypernet_input_proj_t(src_t), mask_t, pos[0],
-                                      self.hypernet_token_embed_t)
-        global_hyper_t = local_t_res[:, 0, :]
-        w_t_h1 = F.gelu(self.hypernet_t_fc_h1(global_hyper_t))
-        w_t_h2 = F.gelu(self.hypernet_t_fc_h2(global_hyper_t))
-        w_t_o = F.gelu(self.hypernet_t_fc_o(global_hyper_t))
-
-        local_rot_res = self.hypernet_rot(self.hypernet_input_proj_rot(src_rot), mask_rot, pos[1],
-                                          self.hypernet_token_embed_rot)
-        global_hyper_rot = local_rot_res[:, 0, :]
-        w_rot_h1 = F.gelu(self.hypernet_rot_fc_h1(global_hyper_rot))
-        w_rot_h2 = F.gelu(self.hypernet_rot_fc_h2(global_hyper_rot))
-        w_rot_o = F.gelu(self.hypernet_rot_fc_o(global_hyper_rot))
+        ##################################################
+        # Hypernet
+        ##################################################
+        hin = self.hypernet_fc(representation)
+        w_t_h1 = F.gelu(self.hypernet_t_fc_h1(hin))
+        w_t_o = F.gelu(self.hypernet_t_fc_o(hin))
+        w_rot_h1 = F.gelu(self.hypernet_rot_fc_h1(hin))
+        w_rot_o = F.gelu(self.hypernet_rot_fc_o(hin))
 
         return {'global_desc_t':global_desc_t,
                 'global_desc_rot':global_desc_rot,
-                'w_t': {'w_h1': w_t_h1, 'w_h2': w_t_h2, 'w_o': w_t_o},
-                'w_rot': {'w_h1': w_rot_h1, 'w_h2': w_rot_h2, 'w_o': w_rot_o}
+                'w_t': {'w_h1': w_t_h1, 'w_o': w_t_o},
+                'w_rot': {'w_h1': w_rot_h1, 'w_o': w_rot_o}
                 }
 
     def forward_heads(self, transformers_res):
@@ -171,8 +155,6 @@ class PoseRegressor(nn.Module):
         self.decoder_dim = decoder_dim
         self.output_dim = output_dim
         self.hidden_dim = hidden_dim
-        self.prelu_fc1 = nn.PReLU()
-        self.prelu_fc2 = nn.PReLU()
 
     @staticmethod
     def batched_linear_layer(x, wb):
@@ -185,12 +167,9 @@ class PoseRegressor(nn.Module):
         """
         Forward pass
         """
-        x = self.prelu_fc1(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
-                                                                                 (self.decoder_dim + 1),
-                                                                                 self.hidden_dim)))
-        x = self.prelu_fc2(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
-                                                                                 (self.decoder_dim + 1),
-                                                                                 self.hidden_dim)))
+        x = F.gelu(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
+                                                                         (self.decoder_dim + 1),
+                                                                         self.hidden_dim)))
         x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
                                                                  (self.hidden_dim + 1),
                                                                  self.output_dim))
