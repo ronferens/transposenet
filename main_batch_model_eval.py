@@ -76,6 +76,8 @@ def main(cfg) -> None:
         model_config = OmegaConf.to_container(cfg[cfg.inputs.model_name])
         model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config).to(device)
 
+        model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
+
         model.load_state_dict(torch.load(checkpoint_path, map_location=device_id))
         logging.info("Initializing from checkpoint: {}".format(checkpoint_path))
 

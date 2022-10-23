@@ -2,10 +2,10 @@ inputs:
   model_name: 'transposenet'
   mode: 'test'
   backbone_path: './models/backbones/efficient-net-b0.pth'
-  dataset_path: '/media/ronf/data/datasets/cambridge'
+  dataset_path: '/media/dev/data/datasets/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
   checkpoint_path: null
-  models_path: './out/run_14_10_22_16_07'
+  models_path: './out/run_23_10_22_09_41'
   models_to_evaluate: null
 
 general:

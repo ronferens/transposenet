@@ -4,7 +4,7 @@ import PIL
 import json
 from os.path import join, exists, split, realpath
 import time
-from os import mkdir, getcwd
+from os import makedirs, getcwd
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,7 +32,7 @@ def create_output_dir(name):
     """
     out_dir = join(getcwd(), name)
     if not exists(out_dir):
-        mkdir(out_dir)
+        makedirs(out_dir, exist_ok=True)
     return out_dir
 
 
