@@ -49,19 +49,21 @@ class TransPoseNet(nn.Module):
         # =========================================
         # Hypernetwork
         # =========================================
-        self.hidden_dim = config.get('hidden_dim')
-        self.hypernet_fc = nn.Linear(1000, self.hidden_dim)
-        self.hypernet_t_fc_h1 = nn.Linear(self.hidden_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_t_fc_o = nn.Linear(self.hidden_dim, 3 * (self.hidden_dim + 1))
-        self.hypernet_rot_fc_h1 = nn.Linear(self.hidden_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_rot_fc_o = nn.Linear(self.hidden_dim, 4 * (self.hidden_dim + 1))
+        self.hyper_dim = config.get('hyper_dim')
+        self.hypernet_fc = nn.Linear(1000, self.hyper_dim)
+        self.hypernet_t_fc_h1 = nn.Linear(self.hyper_dim, self.hyper_dim * (decoder_dim + 1))
+        self.hypernet_t_fc_h2 = nn.Linear(self.hyper_dim, self.hyper_dim * (self.hyper_dim + 1))
+        self.hypernet_t_fc_o = nn.Linear(self.hyper_dim, 3 * (self.hyper_dim + 1))
+        self.hypernet_rot_fc_h1 = nn.Linear(self.hyper_dim, self.hyper_dim * (decoder_dim + 1))
+        self.hypernet_rot_fc_h2 = nn.Linear(self.hyper_dim, self.hyper_dim * (self.hyper_dim + 1))
+        self.hypernet_rot_fc_o = nn.Linear(self.hyper_dim, 4 * (self.hyper_dim + 1))
 
         # =========================================
         # Regressors
         # =========================================
         # Regressors for position (t) and orientation (rot)
-        self.regressor_head_t = PoseRegressor(decoder_dim, self.hidden_dim, 3)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hidden_dim, 4, self.use_prior)
+        self.regressor_head_t = PoseRegressor(decoder_dim, self.hyper_dim, 3)
+        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hyper_dim, 4, self.use_prior)
 
     def forward_transformers(self, data):
         """
@@ -98,16 +100,18 @@ class TransPoseNet(nn.Module):
         ##################################################
         # Hypernet
         ##################################################
-        hin = self.hypernet_fc(representation)
-        w_t_h1 = F.gelu(self.hypernet_t_fc_h1(hin))
-        w_t_o = F.gelu(self.hypernet_t_fc_o(hin))
-        w_rot_h1 = F.gelu(self.hypernet_rot_fc_h1(hin))
-        w_rot_o = F.gelu(self.hypernet_rot_fc_o(hin))
+        hin = F.elu(self.hypernet_fc(representation))
+        w_t_h1 = F.elu(self.hypernet_t_fc_h1(hin))
+        w_t_h2 = F.elu(self.hypernet_t_fc_h2(hin))
+        w_t_o = F.elu(self.hypernet_t_fc_o(hin))
+        w_rot_h1 = F.elu(self.hypernet_rot_fc_h1(hin))
+        w_rot_h2 = F.elu(self.hypernet_rot_fc_h2(hin))
+        w_rot_o = F.elu(self.hypernet_rot_fc_o(hin))
 
         return {'global_desc_t':global_desc_t,
                 'global_desc_rot':global_desc_rot,
-                'w_t': {'w_h1': w_t_h1, 'w_o': w_t_o},
-                'w_rot': {'w_h1': w_rot_h1, 'w_o': w_rot_o}
+                'w_t': {'w_h1': w_t_h1, 'w_h2': w_t_h2, 'w_o': w_t_o},
+                'w_rot': {'w_h1': w_rot_h1, 'w_h2': w_rot_h2, 'w_o': w_rot_o}
                 }
 
     def forward_heads(self, transformers_res):
@@ -167,9 +171,12 @@ class PoseRegressor(nn.Module):
         """
         Forward pass
         """
-        x = F.gelu(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
+        x = F.elu(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
                                                                          (self.decoder_dim + 1),
                                                                          self.hidden_dim)))
+        x = F.elu(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
+                                                                        (self.hidden_dim + 1),
+                                                                        self.hidden_dim)))
         x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
                                                                  (self.hidden_dim + 1),
                                                                  self.output_dim))
