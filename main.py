@@ -44,7 +44,9 @@ def main(cfg) -> None:
 
     # Create the model
     model_config = OmegaConf.to_container(cfg[cfg.inputs.model_name])
-    model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config).to(device)
+    model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config)
+    model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
+    model.to(device)
 
     # Load the checkpoint if needed
     if cfg.inputs.checkpoint_path:

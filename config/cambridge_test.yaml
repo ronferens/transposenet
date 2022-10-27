@@ -2,10 +2,10 @@ inputs:
   model_name: 'transposenet'
   mode: 'test'
   backbone_path: './models/backbones/efficient-net-b0.pth'
-  dataset_path: '/media/ronf/data/datasets/cambridge'
+  dataset_path: '/media/dev/data/datasets/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
   checkpoint_path: null
-  models_path: null
+  models_path: './out/run_26_10_22_18_02'
   models_to_evaluate: null
 
 general:
@@ -17,6 +17,7 @@ transposenet:
   num_encoder_layers: 4
   dim_feedforward: 256
   hidden_dim: 256
+  hyper_dim: 960
   nheads: 4
   reduction:
     t: 'reduction_4'

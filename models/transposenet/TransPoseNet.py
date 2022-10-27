@@ -49,15 +49,15 @@ class TransPoseNet(nn.Module):
         # =========================================
         # Hypernetwork
         # =========================================
-        self.hidden_dim = config.get('hidden_dim')
+        self.hyper_dim = config.get('hyper_dim')
         self.hypernet_t = Transformer(config)
-        self.hypernet_t_fc_h1 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_t_fc_h2 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_t_fc_o = nn.Linear(decoder_dim, 3 * (self.hidden_dim + 1))
+        self.hypernet_t_fc_h1 = nn.Linear(decoder_dim, self.hyper_dim * (decoder_dim + 1))
+        self.hypernet_t_fc_h2 = nn.Linear(decoder_dim, (self.hyper_dim // 2) * (self.hyper_dim + 1))
+        self.hypernet_t_fc_o = nn.Linear(decoder_dim, 3 * ((self.hyper_dim // 2) + 1))
         self.hypernet_rot = Transformer(config)
-        self.hypernet_rot_fc_h1 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_rot_fc_h2 = nn.Linear(decoder_dim, self.hidden_dim * (decoder_dim + 1))
-        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * (self.hidden_dim + 1))
+        self.hypernet_rot_fc_h1 = nn.Linear(decoder_dim, self.hyper_dim * (decoder_dim + 1))
+        self.hypernet_rot_fc_h2 = nn.Linear(decoder_dim, (self.hyper_dim // 2) * (self.hyper_dim + 1))
+        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * ((self.hyper_dim // 2) + 1))
 
         # The learned pose token for position (t) and orientation (rot)
         self.hypernet_token_embed_t = nn.Parameter(torch.zeros((1, decoder_dim)), requires_grad=True)
@@ -71,8 +71,8 @@ class TransPoseNet(nn.Module):
         # Regressors
         # =========================================
         # Regressors for position (t) and orientation (rot)
-        self.regressor_head_t = PoseRegressor(decoder_dim, self.hidden_dim, 3)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hidden_dim, 4, self.use_prior)
+        self.regressor_head_t = PoseRegressor(decoder_dim, self.hyper_dim, 3)
+        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hyper_dim, 4, self.use_prior)
 
     def forward_transformers(self, data):
         """
@@ -90,7 +90,7 @@ class TransPoseNet(nn.Module):
             samples = nested_tensor_from_tensor_list(samples)
 
         # Extract the features and the position embedding from the visual backbone
-        features, pos = self.backbone(samples)
+        features, pos, representation = self.backbone(samples)
 
         src_t, mask_t = features[0].decompose()
         src_rot, mask_rot = features[1].decompose()
@@ -106,6 +106,9 @@ class TransPoseNet(nn.Module):
         global_desc_t = local_descs_t[:, 0, :]
         global_desc_rot = local_descs_rot[:, 0, :]
 
+        ##################################################
+        # Hypernet
+        ##################################################
         local_t_res = self.hypernet_t(self.hypernet_input_proj_t(src_t), mask_t, pos[0],
                                       self.hypernet_token_embed_t)
         global_hyper_t = local_t_res[:, 0, :]
@@ -171,8 +174,6 @@ class PoseRegressor(nn.Module):
         self.decoder_dim = decoder_dim
         self.output_dim = output_dim
         self.hidden_dim = hidden_dim
-        self.prelu_fc1 = nn.PReLU()
-        self.prelu_fc2 = nn.PReLU()
 
     @staticmethod
     def batched_linear_layer(x, wb):
@@ -185,13 +186,13 @@ class PoseRegressor(nn.Module):
         """
         Forward pass
         """
-        x = self.prelu_fc1(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
-                                                                                 (self.decoder_dim + 1),
-                                                                                 self.hidden_dim)))
-        x = self.prelu_fc2(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
-                                                                                 (self.decoder_dim + 1),
-                                                                                 self.hidden_dim)))
+        x = F.elu(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
+                                                                         (self.decoder_dim + 1),
+                                                                         self.hidden_dim)))
+        x = F.elu(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
+                                                                        (self.hidden_dim + 1),
+                                                                        (self.hidden_dim // 2))))
         x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
-                                                                 (self.hidden_dim + 1),
+                                                                 ((self.hidden_dim // 2) + 1),
                                                                  self.output_dim))
         return x

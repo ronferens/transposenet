@@ -21,14 +21,16 @@ class BackboneBase(nn.Module):
 
     def forward(self, tensor_list: NestedTensor):
         xs = self.body.extract_endpoints(tensor_list.tensors) 
-        out: Dict[str, NestedTensor] = {}
+        feat_out: Dict[str, NestedTensor] = {}
         for name in self.reductions:
             x = xs[name]
             m = tensor_list.mask
             assert m is not None
             mask = F.interpolate(m[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
-            out[name] = NestedTensor(x, mask)
-        return out
+            feat_out[name] = NestedTensor(x, mask)
+
+        rep_out = self.body.forward(tensor_list.tensors)
+        return feat_out, rep_out
 
 
 class Backbone(BackboneBase):
@@ -42,11 +44,11 @@ class Joiner(nn.Sequential):
         super().__init__(backbone, position_embedding)
 
     def forward(self, tensor_list: NestedTensor):
-        xs = self[0](tensor_list)
-        out: List[NestedTensor] = []
+        feat, rep_out = self[0](tensor_list)
+        feat_out: List[NestedTensor] = []
         pos = []
-        for name, x in xs.items():
-            out.append(x)
+        for name, x in feat.items():
+            feat_out.append(x)
             # position encoding
             ret = self[1](x)
             if isinstance(ret, tuple):
@@ -54,7 +56,7 @@ class Joiner(nn.Sequential):
                 pos.append([p_emb.to(x.tensors.dtype), m_emb.to(x.tensors.dtype)])
             else:
                 pos.append(ret.to(x.tensors.dtype))
-        return out, pos
+        return feat_out, pos, rep_out
 
 
 def build_backbone(config) -> nn.Module:
