@@ -46,24 +46,9 @@ class TransPoseNet(nn.Module):
         # Whether to use prior from the position for the orientation
         self.use_prior = config.get("use_prior_t_for_rot")
 
-        # =========================================
-        # Hypernetwork
-        # =========================================
-        self.hyper_dim = config.get('hyper_dim')
-        self.hypernet_fc = nn.Linear(1000, self.hyper_dim)
-        # self.hypernet_t_fc_h1 = nn.Linear(self.hyper_dim, self.hyper_dim * (decoder_dim + 1))
-        # self.hypernet_t_fc_h2 = nn.Linear(self.hyper_dim, self.hyper_dim * (self.hyper_dim + 1))
-        self.hypernet_t_fc_o = nn.Linear(self.hyper_dim, 3 * (decoder_dim + 1))
-        # self.hypernet_rot_fc_h1 = nn.Linear(self.hyper_dim, self.hyper_dim * (decoder_dim + 1))
-        # self.hypernet_rot_fc_h2 = nn.Linear(self.hyper_dim, self.hyper_dim * (self.hyper_dim + 1))
-        self.hypernet_rot_fc_o = nn.Linear(self.hyper_dim, 4 * (decoder_dim + 1))
-
-        # =========================================
-        # Regressors
-        # =========================================
         # Regressors for position (t) and orientation (rot)
-        self.regressor_head_t = PoseRegressor(decoder_dim, self.hyper_dim, 3)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hyper_dim, 4, self.use_prior)
+        self.regressor_head_t = PoseRegressor(decoder_dim, 3)
+        self.regressor_head_rot = PoseRegressor(decoder_dim, 4, self.use_prior)
 
     def forward_transformers(self, data):
         """
@@ -97,22 +82,7 @@ class TransPoseNet(nn.Module):
         global_desc_t = local_descs_t[:, 0, :]
         global_desc_rot = local_descs_rot[:, 0, :]
 
-        ##################################################
-        # Hypernet
-        ##################################################
-        hin = F.elu(self.hypernet_fc(representation))
-        # w_t_h1 = F.elu(self.hypernet_t_fc_h1(hin))
-        # w_t_h2 = F.elu(self.hypernet_t_fc_h2(hin))
-        w_t_o = F.elu(self.hypernet_t_fc_o(hin))
-        # w_rot_h1 = F.elu(self.hypernet_rot_fc_h1(hin))
-        # w_rot_h2 = F.elu(self.hypernet_rot_fc_h2(hin))
-        w_rot_o = F.elu(self.hypernet_rot_fc_o(hin))
-
-        return {'global_desc_t':global_desc_t,
-                'global_desc_rot':global_desc_rot,
-                'w_t': {'w_o': w_t_o},
-                'w_rot': {'w_o': w_rot_o}
-                }
+        return {'global_desc_t':global_desc_t, 'global_desc_rot':global_desc_rot}
 
     def forward_heads(self, transformers_res):
         """
@@ -124,11 +94,11 @@ class TransPoseNet(nn.Module):
         global_desc_t = transformers_res.get('global_desc_t')
         global_desc_rot = transformers_res.get('global_desc_rot')
 
-        x_t = self.regressor_head_t(global_desc_t, transformers_res.get('w_t'))
+        x_t = self.regressor_head_t(global_desc_t)
         if self.use_prior:
             global_desc_rot = torch.cat((global_desc_t, global_desc_rot), dim=1)
 
-        x_rot = self.regressor_head_rot(global_desc_rot, transformers_res.get('w_rot'))
+        x_rot = self.regressor_head_rot(global_desc_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
         return {'pose': expected_pose}
 
@@ -149,35 +119,33 @@ class TransPoseNet(nn.Module):
 class PoseRegressor(nn.Module):
     """ A simple MLP to regress a pose component"""
 
-    def __init__(self, decoder_dim, hidden_dim, output_dim, use_prior=False):
+    def __init__(self, decoder_dim, output_dim, use_prior=False):
         """
         decoder_dim: (int) the input dimension
-        output_dim: (int) the output dimension
+        output_dim: (int) the outpur dimension
         use_prior: (bool) whether to use prior information
         """
         super().__init__()
-        self.decoder_dim = decoder_dim
-        self.output_dim = output_dim
-        self.hidden_dim = hidden_dim
+        ch = 1024
+        self.fc_h = nn.Linear(decoder_dim, ch)
+        self.use_prior = use_prior
+        if self.use_prior:
+            self.fc_h_prior = nn.Linear(decoder_dim * 2, ch)
+        self.fc_o = nn.Linear(ch, output_dim)
+        self._reset_parameters()
 
-    @staticmethod
-    def batched_linear_layer(x, wb):
-        # x: (B, N, D1); wb: (B, D1 + 1, D2) or (D1 + 1, D2)
-        one = torch.ones(*x.shape[:-1], 1, device=x.device)
-        linear_res = torch.matmul(torch.cat([x, one], dim=-1).unsqueeze(1), wb)
-        return linear_res.squeeze(1)
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
 
-    def forward(self, x, weights):
+    def forward(self, x):
         """
         Forward pass
         """
-        # x = F.elu(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
-        #                                                                  (self.decoder_dim + 1),
-        #                                                                  self.hidden_dim)))
-        # x = F.elu(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
-        #                                                                 (self.hidden_dim + 1),
-        #                                                                 self.hidden_dim)))
-        x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
-                                                                 (self.decoder_dim + 1),
-                                                                 self.output_dim))
-        return x
+        if self.use_prior:
+            x = F.gelu(self.fc_h_prior(x))
+        else:
+            x = F.gelu(self.fc_h(x))
+
+        return self.fc_o(x)
