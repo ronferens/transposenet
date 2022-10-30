@@ -45,36 +45,46 @@ def main(cfg) -> None:
     # Create the model
     model_config = OmegaConf.to_container(cfg[cfg.inputs.model_name])
     model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config)
-    model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
-    model.to(device)
 
-    # Load the checkpoint if needed
     if cfg.inputs.checkpoint_path:
-        model.load_state_dict(torch.load(cfg.inputs.checkpoint_path, map_location=device_id))
+        # Load the checkpoint if needed
+        model.load_state_dict(torch.load(cfg.inputs.checkpoint_path))
+        # model.module.load_state_dict(torch.load(cfg.inputs.checkpoint_path))
         logging.info("Initializing from checkpoint: {}".format(cfg.inputs.checkpoint_path))
+
+    # Freeze parts of the model if indicated
+    freeze = cfg[cfg.inputs.model_name].freeze
+    if freeze:
+        freeze_exclude_phrase = cfg[cfg.inputs.model_name].freeze_exclude_phrase
+        if isinstance(freeze_exclude_phrase, str):
+            freeze_exclude_phrase = [freeze_exclude_phrase]
+
+        for name, parameter in model.named_parameters():
+            freeze_param = True
+            for phrase in freeze_exclude_phrase:
+                if phrase in name:
+                    freeze_param = False
+                    break
+            if freeze_param:
+                parameter.requires_grad_(False)
+
+    if cfg.general.distributed_train and torch.cuda.device_count() > 1:
+        print("Detected: ", torch.cuda.device_count(), " GPUs")
+        model = torch.nn.DataParallel(model).cuda()
+    else:
+        if torch.cuda.device_count() == 1:
+            print('Detected a single GPU')
+        else:
+            print('Running on CPU!')
+        model.cuda()
 
     if cfg.inputs.mode == 'train':
         # Set to train mode
         model.train()
 
-        # Freeze parts of the model if indicated
-        freeze = cfg[cfg.inputs.model_name].freeze
-        freeze_exclude_phrase = cfg[cfg.inputs.model_name].freeze_exclude_phrase
-        if isinstance(freeze_exclude_phrase, str):
-            freeze_exclude_phrase = [freeze_exclude_phrase]
-        if freeze:
-            for name, parameter in model.named_parameters():
-                freeze_param = True
-                for phrase in freeze_exclude_phrase:
-                    if phrase in name:
-                        freeze_param = False
-                        break
-                if freeze_param:
-                    parameter.requires_grad_(False)
-
         # Set the loss
         loss_config = OmegaConf.to_container(cfg[cfg.inputs.model_name].loss)
-        pose_loss = CameraPoseLoss(loss_config).to(device)
+        pose_loss = CameraPoseLoss(loss_config).cuda()
 
         # Set the optimizer and scheduler
         params = list(model.parameters()) + list(pose_loss.parameters())
@@ -112,7 +122,7 @@ def main(cfg) -> None:
 
             for batch_idx, minibatch in enumerate(dataloader):
                 for k, v in minibatch.items():
-                    minibatch[k] = v.to(device)
+                    minibatch[k] = v.cuda()
                 gt_pose = minibatch.get('pose').to(dtype=torch.float32)
                 batch_size = gt_pose.shape[0]
                 n_samples += batch_size
@@ -121,7 +131,7 @@ def main(cfg) -> None:
                 if freeze:  # For TransPoseNet
                     model.eval()
                     with torch.no_grad():
-                        transformers_res = model.forward_transformers(minibatch)
+                        transformers_res = model.module.forward_transformers(minibatch)
                     model.train()
 
                 # Zero the gradients
@@ -129,7 +139,7 @@ def main(cfg) -> None:
 
                 # Forward pass to estimate the pose
                 if freeze:
-                    res = model.forward_heads(transformers_res)
+                    res = model.module.forward_heads(transformers_res)
                 else:
                     res = model(minibatch)
 
@@ -159,7 +169,7 @@ def main(cfg) -> None:
                     writer.add_scalar("Pose/orientation_train", orient_err.mean().item(), n_total_samples)
             # Save checkpoint
             if (epoch % n_freq_checkpoint) == 0 and epoch >= start_save_epoch:
-                torch.save(model.state_dict(),
+                torch.save(model.module.state_dict(),
                            join(log_path, f'{utils.get_stamp_from_log()}_checkpoint-{epoch}.pth'))
 
             # Scheduler update
@@ -167,7 +177,7 @@ def main(cfg) -> None:
             writer.add_scalar("Loss/lr", scheduler.get_lr()[0], epoch)
 
         logging.info('Training completed')
-        torch.save(model.state_dict(), join(log_path, f'{utils.get_stamp_from_log()}_final.pth'.format(epoch)))
+        torch.save(model.module.state_dict(), join(log_path, f'{utils.get_stamp_from_log()}_final.pth'.format(epoch)))
         writer.flush()
         writer.close()
 
@@ -192,7 +202,7 @@ def main(cfg) -> None:
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
                 for k, v in minibatch.items():
-                    minibatch[k] = v.to(device)
+                    minibatch[k] = v.cuda()
 
                 gt_pose = minibatch.get('pose').to(dtype=torch.float32)
 

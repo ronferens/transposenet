@@ -8,9 +8,10 @@ inputs:
   experiment: null
 
 general:
+  distributed_train: true
   n_freq_print: 5
   n_freq_checkpoint: 50
-  start_save_epoch: 200
+  start_save_epoch: 600
   n_workers: 4
   device_id: 'cuda:0'
   batch_size: 8
@@ -30,7 +31,7 @@ transposenet:
   num_encoder_layers: 6
   dim_feedforward: 256
   hidden_dim: 256
-  hyper_dim: 340
+  hyper_dim: 512
   dropout: 0.1
   nheads: 4
   freeze: false
@@ -38,4 +39,4 @@ transposenet:
     t: 'reduction_4'
     q: 'reduction_3'
   use_prior_t_for_rot: false
-  freeze_exclude_phrase: regressor_head_rot
+  freeze_exclude_phrase: ["regressor_head_t", "hypernet_fc", "hypernet_t_fc_o"]
