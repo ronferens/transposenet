@@ -47,7 +47,6 @@ def main(cfg) -> None:
         torch.backends.cudnn.benchmark = False
         device_id = cfg.general.device_id
     np.random.seed(numpy_seed)
-    device = torch.device(device_id)
 
     # Extract all checkpoints to evaluate
     all_model_files = [join(cfg.inputs.models_path, f)
@@ -74,12 +73,20 @@ def main(cfg) -> None:
     for checkpoint_path in models_to_eval:
         # Create the model
         model_config = OmegaConf.to_container(cfg[cfg.inputs.model_name])
-        model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config).to(device)
-
-        model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
+        model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config)
 
         model.load_state_dict(torch.load(checkpoint_path, map_location=device_id))
         logging.info("Initializing from checkpoint: {}".format(checkpoint_path))
+
+        if cfg.general.distributed_train and torch.cuda.device_count() > 1:
+            print("Detected: ", torch.cuda.device_count(), " GPUs")
+            model = torch.nn.DataParallel(model).cuda()
+        else:
+            if torch.cuda.device_count() == 1:
+                print('Detected a single GPU')
+            else:
+                print('Running on CPU!')
+            model.cuda()
 
         # Set to eval mode
         model.eval()
@@ -97,7 +104,7 @@ def main(cfg) -> None:
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
                 for k, v in minibatch.items():
-                    minibatch[k] = v.to(device)
+                    minibatch[k] = v.cuda()
 
                 gt_pose = minibatch.get('pose').to(dtype=torch.float32)
 

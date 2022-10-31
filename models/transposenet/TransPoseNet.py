@@ -39,6 +39,9 @@ class TransPoseNet(nn.Module):
         self.pose_token_embed_t = nn.Parameter(torch.zeros((1, decoder_dim)), requires_grad=True)
         self.pose_token_embed_rot = nn.Parameter(torch.zeros((1, decoder_dim)), requires_grad=True)
 
+        self.token_fuze_n_itr = 3
+        self.fc_token_fuze = nn.Linear((decoder_dim * 2), decoder_dim)
+
         # The projection of the activation map before going into the Transformer's encoder
         self.input_proj_t = nn.Conv2d(self.backbone.num_channels[0], decoder_dim, kernel_size=1)
         self.input_proj_rot = nn.Conv2d(self.backbone.num_channels[1], decoder_dim, kernel_size=1)
@@ -74,13 +77,19 @@ class TransPoseNet(nn.Module):
         # Run through the transformer to translate to "camera-pose" language
         assert mask_t is not None
         assert mask_rot is not None
-        local_descs_t = self.transformer_t(self.input_proj_t(src_t), mask_t, pos[0], self.pose_token_embed_t)
-        local_descs_rot = self.transformer_rot(self.input_proj_rot(src_rot), mask_rot, pos[1],
-                                               self.pose_token_embed_rot)
+        for itr in range(self.token_fuze_n_itr):
+            local_descs_t = self.transformer_t(self.input_proj_t(src_t), mask_t, pos[0], self.pose_token_embed_t)
+            local_descs_rot = self.transformer_rot(self.input_proj_rot(src_rot), mask_rot, pos[1],
+                                                   self.pose_token_embed_rot)
 
-        # Take the global desc from the pose token
-        global_desc_t = local_descs_t[:, 0, :]
-        global_desc_rot = local_descs_rot[:, 0, :]
+            # Take the global desc from the pose token
+            global_desc_t = local_descs_t[:, 0, :]
+            global_desc_rot = local_descs_rot[:, 0, :]
+
+            # Generating an updated joint translation-rotation token for the next iteration
+            token = F.gelu(self.fc_token_fuze((global_desc_t, global_desc_rot), dim=1))
+            self.pose_token_embed_t = token
+            self.pose_token_embed_rot = token
 
         return {'global_desc_t':global_desc_t, 'global_desc_rot':global_desc_rot}
 
