@@ -31,16 +31,13 @@ def main(cfg) -> None:
 
     # Set the seeds and the device
     use_cuda = torch.cuda.is_available()
-    device_id = 'cpu'
     torch_seed = 0
     numpy_seed = 2
     torch.manual_seed(torch_seed)
     if use_cuda:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        device_id = cfg.general.device_id
     np.random.seed(numpy_seed)
-    device = torch.device(device_id)
 
     # Create the model
     model_config = OmegaConf.to_container(cfg[cfg.inputs.model_name])
@@ -52,35 +49,35 @@ def main(cfg) -> None:
         # model.module.load_state_dict(torch.load(cfg.inputs.checkpoint_path))
         logging.info("Initializing from checkpoint: {}".format(cfg.inputs.checkpoint_path))
 
-    # Freeze parts of the model if indicated
-    freeze = cfg[cfg.inputs.model_name].freeze
-    if freeze:
-        freeze_exclude_phrase = cfg[cfg.inputs.model_name].freeze_exclude_phrase
-        if isinstance(freeze_exclude_phrase, str):
-            freeze_exclude_phrase = [freeze_exclude_phrase]
-
-        for name, parameter in model.named_parameters():
-            freeze_param = True
-            for phrase in freeze_exclude_phrase:
-                if phrase in name:
-                    freeze_param = False
-                    break
-            if freeze_param:
-                parameter.requires_grad_(False)
-
-    if cfg.general.distributed_train and torch.cuda.device_count() > 1:
-        print("Detected: ", torch.cuda.device_count(), " GPUs")
-        model = torch.nn.DataParallel(model).cuda()
-    else:
-        if torch.cuda.device_count() == 1:
-            print('Detected a single GPU')
-        else:
-            print('Running on CPU!')
-        model.cuda()
-
     if cfg.inputs.mode == 'train':
         # Set to train mode
         model.train()
+
+        # Freeze parts of the model if indicated
+        freeze = cfg[cfg.inputs.model_name].freeze
+        if freeze:
+            freeze_exclude_phrase = cfg[cfg.inputs.model_name].freeze_exclude_phrase
+            if isinstance(freeze_exclude_phrase, str):
+                freeze_exclude_phrase = [freeze_exclude_phrase]
+
+            for name, parameter in model.named_parameters():
+                freeze_param = True
+                for phrase in freeze_exclude_phrase:
+                    if phrase in name:
+                        freeze_param = False
+                        break
+                if freeze_param:
+                    parameter.requires_grad_(False)
+
+        if cfg.general.distributed_train and torch.cuda.device_count() > 1:
+            print("Detected: ", torch.cuda.device_count(), " GPUs")
+            model = torch.nn.DataParallel(model).cuda()
+        else:
+            if torch.cuda.device_count() == 1:
+                print('Detected a single GPU')
+            else:
+                print('Running on CPU!')
+            model.cuda()
 
         # Set the loss
         loss_config = OmegaConf.to_container(cfg[cfg.inputs.model_name].loss)

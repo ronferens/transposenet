@@ -50,12 +50,9 @@ class TransPoseNet(nn.Module):
         # Hypernetwork
         # =========================================
         self.hyper_dim = config.get('hyper_dim')
-        self.hypernet_fc = nn.Linear(1000, self.hyper_dim)
-        # self.hypernet_t_fc_h1 = nn.Linear(self.hyper_dim, self.hyper_dim * (decoder_dim + 1))
-        # self.hypernet_t_fc_h2 = nn.Linear(self.hyper_dim, self.hyper_dim * (self.hyper_dim + 1))
+        self.hypernet_fc_t = nn.Linear(1000, self.hyper_dim)
         self.hypernet_t_fc_o = nn.Linear(self.hyper_dim, 3 * (decoder_dim + 1))
-        # self.hypernet_rot_fc_h1 = nn.Linear(self.hyper_dim, self.hyper_dim * (decoder_dim + 1))
-        # self.hypernet_rot_fc_h2 = nn.Linear(self.hyper_dim, self.hyper_dim * (self.hyper_dim + 1))
+        self.hypernet_fc_rot = nn.Linear(1000, self.hyper_dim)
         self.hypernet_rot_fc_o = nn.Linear(self.hyper_dim, 4 * (decoder_dim + 1))
 
         # =========================================
@@ -97,21 +94,9 @@ class TransPoseNet(nn.Module):
         global_desc_t = local_descs_t[:, 0, :]
         global_desc_rot = local_descs_rot[:, 0, :]
 
-        ##################################################
-        # Hypernet
-        ##################################################
-        hin = F.elu(self.hypernet_fc(representation))
-        # w_t_h1 = F.elu(self.hypernet_t_fc_h1(hin))
-        # w_t_h2 = F.elu(self.hypernet_t_fc_h2(hin))
-        w_t_o = F.elu(self.hypernet_t_fc_o(hin))
-        # w_rot_h1 = F.elu(self.hypernet_rot_fc_h1(hin))
-        # w_rot_h2 = F.elu(self.hypernet_rot_fc_h2(hin))
-        w_rot_o = F.elu(self.hypernet_rot_fc_o(hin))
-
         return {'global_desc_t':global_desc_t,
                 'global_desc_rot':global_desc_rot,
-                'w_t': {'w_o': w_t_o},
-                'w_rot': {'w_o': w_rot_o}
+                'representation': representation
                 }
 
     def forward_heads(self, transformers_res):
@@ -123,12 +108,21 @@ class TransPoseNet(nn.Module):
         """
         global_desc_t = transformers_res.get('global_desc_t')
         global_desc_rot = transformers_res.get('global_desc_rot')
+        representation = transformers_res.get('representation')
 
-        x_t = self.regressor_head_t(global_desc_t, transformers_res.get('w_t'))
+        ##################################################
+        # Hypernet
+        ##################################################
+        hin_t = F.gelu(self.hypernet_fc_rot(representation))
+        w_t_o = F.gelu(self.hypernet_t_fc_o(hin_t))
+        hin_rot = self.hypernet_fc_t(representation)
+        w_rot_o = self.hypernet_rot_fc_o(hin_rot)
+
+        x_t = self.regressor_head_t(global_desc_t, w_t_o)
         if self.use_prior:
             global_desc_rot = torch.cat((global_desc_t, global_desc_rot), dim=1)
 
-        x_rot = self.regressor_head_rot(global_desc_rot, transformers_res.get('w_rot'))
+        x_rot = self.regressor_head_rot(global_desc_rot, w_rot_o)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
         return {'pose': expected_pose}
 
@@ -177,7 +171,7 @@ class PoseRegressor(nn.Module):
         # x = F.elu(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
         #                                                                 (self.hidden_dim + 1),
         #                                                                 self.hidden_dim)))
-        x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
-                                                                 (self.decoder_dim + 1),
-                                                                 self.output_dim))
+        x = self.batched_linear_layer(x, weights.view(weights.shape[0],
+                                                      (self.decoder_dim + 1),
+                                                      self.output_dim))
         return x

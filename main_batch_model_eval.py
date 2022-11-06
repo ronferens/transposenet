@@ -74,12 +74,20 @@ def main(cfg) -> None:
     for checkpoint_path in models_to_eval:
         # Create the model
         model_config = OmegaConf.to_container(cfg[cfg.inputs.model_name])
-        model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config).to(device)
-
-        model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
+        model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config)
 
         model.load_state_dict(torch.load(checkpoint_path, map_location=device_id))
         logging.info("Initializing from checkpoint: {}".format(checkpoint_path))
+
+        if cfg.general.distributed_train and torch.cuda.device_count() > 1:
+            print("Detected: ", torch.cuda.device_count(), " GPUs")
+            model = torch.nn.DataParallel(model).cuda()
+        else:
+            if torch.cuda.device_count() == 1:
+                print('Detected a single GPU')
+            else:
+                print('Running on CPU!')
+            model.cuda()
 
         # Set to eval mode
         model.eval()
