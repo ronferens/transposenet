@@ -74,6 +74,9 @@ class TransPoseNet(nn.Module):
         self.regressor_head_t = PoseRegressor(decoder_dim, self.hyper_dim, 3)
         self.regressor_head_rot = PoseRegressor(decoder_dim, self.hyper_dim, 4, self.use_prior)
 
+    def _swish(self, x):
+        return x * F.sigmoid(x)
+
     def forward_transformers(self, data):
         """
         The forward pass expects a dictionary with key-value 'img' -- NestedTensor, which consists of:
@@ -112,16 +115,16 @@ class TransPoseNet(nn.Module):
         local_t_res = self.hypernet_t(self.hypernet_input_proj_t(src_t), mask_t, pos[0],
                                       self.hypernet_token_embed_t)
         global_hyper_t = local_t_res[:, 0, :]
-        w_t_h1 = F.gelu(self.hypernet_t_fc_h1(global_hyper_t))
-        w_t_h2 = F.gelu(self.hypernet_t_fc_h2(global_hyper_t))
-        w_t_o = F.gelu(self.hypernet_t_fc_o(global_hyper_t))
+        w_t_h1 = self._swish(self.hypernet_t_fc_h1(global_hyper_t))
+        w_t_h2 = self._swish(self.hypernet_t_fc_h2(global_hyper_t))
+        w_t_o = self._swish(self.hypernet_t_fc_o(global_hyper_t))
 
         local_rot_res = self.hypernet_rot(self.hypernet_input_proj_rot(src_rot), mask_rot, pos[1],
                                           self.hypernet_token_embed_rot)
         global_hyper_rot = local_rot_res[:, 0, :]
-        w_rot_h1 = F.gelu(self.hypernet_rot_fc_h1(global_hyper_rot))
-        w_rot_h2 = F.gelu(self.hypernet_rot_fc_h2(global_hyper_rot))
-        w_rot_o = F.gelu(self.hypernet_rot_fc_o(global_hyper_rot))
+        w_rot_h1 = self._swish(self.hypernet_rot_fc_h1(global_hyper_rot))
+        w_rot_h2 = self._swish(self.hypernet_rot_fc_h2(global_hyper_rot))
+        w_rot_o = self._swish(self.hypernet_rot_fc_o(global_hyper_rot))
 
         return {'global_desc_t':global_desc_t,
                 'global_desc_rot':global_desc_rot,
@@ -182,16 +185,19 @@ class PoseRegressor(nn.Module):
         linear_res = torch.matmul(torch.cat([x, one], dim=-1).unsqueeze(1), wb)
         return linear_res.squeeze(1)
 
+    def _swish(self, x):
+        return x * F.sigmoid(x)
+
     def forward(self, x, weights):
         """
         Forward pass
         """
-        x = F.elu(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
-                                                                         (self.decoder_dim + 1),
-                                                                         self.hidden_dim)))
-        x = F.elu(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
-                                                                        (self.hidden_dim + 1),
-                                                                        (self.hidden_dim // 2))))
+        x = self._swish(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
+                                                                              (self.decoder_dim + 1),
+                                                                              self.hidden_dim)))
+        x = self._swish(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
+                                                                              (self.hidden_dim + 1),
+                                                                              (self.hidden_dim // 2))))
         x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
                                                                  ((self.hidden_dim // 2) + 1),
                                                                  self.output_dim))
