@@ -115,38 +115,51 @@ class TransPoseNet(nn.Module):
         local_t_res = self.hypernet_t(self.hypernet_input_proj_t(src_t), mask_t, pos[0],
                                       self.hypernet_token_embed_t)
         global_hyper_t = local_t_res[:, 0, :]
-        w_t_h1 = self._swish(self.hypernet_t_fc_h1(global_hyper_t))
-        w_t_h2 = self._swish(self.hypernet_t_fc_h2(global_hyper_t))
-        w_t_o = self._swish(self.hypernet_t_fc_o(global_hyper_t))
 
         local_rot_res = self.hypernet_rot(self.hypernet_input_proj_rot(src_rot), mask_rot, pos[1],
                                           self.hypernet_token_embed_rot)
         global_hyper_rot = local_rot_res[:, 0, :]
-        w_rot_h1 = self._swish(self.hypernet_rot_fc_h1(global_hyper_rot))
-        w_rot_h2 = self._swish(self.hypernet_rot_fc_h2(global_hyper_rot))
-        w_rot_o = self._swish(self.hypernet_rot_fc_o(global_hyper_rot))
 
-        return {'global_desc_t':global_desc_t,
-                'global_desc_rot':global_desc_rot,
-                'w_t': {'w_h1': w_t_h1, 'w_h2': w_t_h2, 'w_o': w_t_o},
-                'w_rot': {'w_h1': w_rot_h1, 'w_h2': w_rot_h2, 'w_o': w_rot_o}
+        return {'global_desc_t': global_desc_t,
+                'global_desc_rot': global_desc_rot,
+                'global_hyper_t': global_hyper_t,
+                'global_hyper_rot': global_hyper_rot
                 }
 
     def forward_heads(self, transformers_res):
         """
-        The forward pass execpts a dictionary with two keys-values:
+        The forward pass excepts a dictionary with two keys-values:
         global_desc_t: latent representation from the position encoder
         global_dec_rot: latent representation from the orientation encoder
         returns: dictionary with key-value 'pose'--expected pose (NX7)
         """
         global_desc_t = transformers_res.get('global_desc_t')
         global_desc_rot = transformers_res.get('global_desc_rot')
+        global_hyper_t = transformers_res.get('global_hyper_t')
+        global_hyper_rot = transformers_res.get('global_hyper_rot')
 
-        x_t = self.regressor_head_t(global_desc_t, transformers_res.get('w_t'))
+        ##################################################
+        # Hypernet
+        ##################################################
+        w_t_h1 = self._swish(self.hypernet_t_fc_h1(global_hyper_t))
+        w_t_h2 = self._swish(self.hypernet_t_fc_h2(global_hyper_t))
+        w_t_o = self._swish(self.hypernet_t_fc_o(global_hyper_t))
+
+        w_rot_h1 = self._swish(self.hypernet_rot_fc_h1(global_hyper_rot))
+        w_rot_h2 = self._swish(self.hypernet_rot_fc_h2(global_hyper_rot))
+        w_rot_o = self._swish(self.hypernet_rot_fc_o(global_hyper_rot))
+
+        w_t = {'w_h1': w_t_h1, 'w_h2': w_t_h2, 'w_o': w_t_o}
+        w_rot = {'w_h1': w_rot_h1, 'w_h2': w_rot_h2, 'w_o': w_rot_o}
+
+        ##################################################
+        # Regression
+        ##################################################
+        x_t = self.regressor_head_t(global_desc_t, w_t)
         if self.use_prior:
             global_desc_rot = torch.cat((global_desc_t, global_desc_rot), dim=1)
 
-        x_rot = self.regressor_head_rot(global_desc_rot, transformers_res.get('w_rot'))
+        x_rot = self.regressor_head_rot(global_desc_rot, w_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
         return {'pose': expected_pose}
 

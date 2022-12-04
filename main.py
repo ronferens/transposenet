@@ -121,7 +121,7 @@ def main(cfg) -> None:
                 if freeze:  # For TransPoseNet
                     model.eval()
                     with torch.no_grad():
-                        transformers_res = model.forward_transformers(minibatch)
+                        transformers_res = model.module.forward_transformers(minibatch)
                     model.train()
 
                 # Zero the gradients
@@ -129,7 +129,7 @@ def main(cfg) -> None:
 
                 # Forward pass to estimate the pose
                 if freeze:
-                    res = model.forward_heads(transformers_res)
+                    res = model.module.forward_heads(transformers_res)
                 else:
                     res = model(minibatch)
 

@@ -4,13 +4,13 @@ inputs:
   backbone_path: './models/backbones/efficient-net-b0.pth'
   dataset_path: '/media/dev/data/datasets/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_train.csv'
-  checkpoint_path: '/home/dev/git/transposenet/out/run_02_12_22_13_38/run_02_12_22_13_38_checkpoint-700.pth'
+  checkpoint_path: null
   experiment: null
 
 general:
   n_freq_print: 5
   n_freq_checkpoint: 50
-  start_save_epoch: 200
+  start_save_epoch: 50
   n_workers: 4
   device_id: 'cuda:0'
   batch_size: 8
@@ -25,7 +25,7 @@ transposenet:
   lr: 1e-4
   weight_decay: 1e-4
   eps: 1e-10
-  lr_scheduler_gamma: 0.5
+  lr_scheduler_gamma: 0.75
   lr_scheduler_step_size: 200
   num_encoder_layers: 6
   dim_feedforward: 256
@@ -38,4 +38,4 @@ transposenet:
     t: 'reduction_4'
     q: 'reduction_3'
   use_prior_t_for_rot: false
-  freeze_exclude_phrase: ['hypernet_rot', 'hypernet_rot_fc_h1', 'hypernet_rot_fc_h2', 'hypernet_rot_fc_o', 'hypernet_input_proj_rot']
+  freeze_exclude_phrase: ['hypernet_t_fc_h1', 'hypernet_t_fc_h2', 'hypernet_t_fc_o']
