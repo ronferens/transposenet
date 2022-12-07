@@ -109,21 +109,14 @@ class TransPoseNet(nn.Module):
         global_desc_t = local_descs_t[:, 0, :]
         global_desc_rot = local_descs_rot[:, 0, :]
 
-        ##################################################
-        # Hypernet
-        ##################################################
-        local_t_res = self.hypernet_t(self.hypernet_input_proj_t(src_t), mask_t, pos[0],
-                                      self.hypernet_token_embed_t)
-        global_hyper_t = local_t_res[:, 0, :]
-
-        local_rot_res = self.hypernet_rot(self.hypernet_input_proj_rot(src_rot), mask_rot, pos[1],
-                                          self.hypernet_token_embed_rot)
-        global_hyper_rot = local_rot_res[:, 0, :]
-
         return {'global_desc_t': global_desc_t,
                 'global_desc_rot': global_desc_rot,
-                'global_hyper_t': global_hyper_t,
-                'global_hyper_rot': global_hyper_rot
+                'src_t': src_t,
+                'mask_t': mask_t,
+                'src_rot': src_rot,
+                'mask_rot': mask_rot,
+                'pos_0': pos[0],
+                'pos_1': pos[1]
                 }
 
     def forward_heads(self, transformers_res):
@@ -135,12 +128,24 @@ class TransPoseNet(nn.Module):
         """
         global_desc_t = transformers_res.get('global_desc_t')
         global_desc_rot = transformers_res.get('global_desc_rot')
-        global_hyper_t = transformers_res.get('global_hyper_t')
-        global_hyper_rot = transformers_res.get('global_hyper_rot')
+        src_t = transformers_res.get('src_t')
+        mask_t = transformers_res.get('mask_t')
+        src_rot = transformers_res.get('src_rot')
+        mask_rot = transformers_res.get('mask_rot')
+        pos_0 = transformers_res.get('pos_0')
+        pos_1 = transformers_res.get('pos_1')
 
         ##################################################
         # Hypernet
         ##################################################
+        local_t_res = self.hypernet_t(self.hypernet_input_proj_t(src_t), mask_t, pos_0,
+                                      self.hypernet_token_embed_t)
+        global_hyper_t = local_t_res[:, 0, :]
+
+        local_rot_res = self.hypernet_rot(self.hypernet_input_proj_rot(src_rot), mask_rot, pos_1,
+                                          self.hypernet_token_embed_rot)
+        global_hyper_rot = local_rot_res[:, 0, :]
+
         w_t_h1 = self._swish(self.hypernet_t_fc_h1(global_hyper_t))
         w_t_h2 = self._swish(self.hypernet_t_fc_h2(global_hyper_t))
         w_t_o = self._swish(self.hypernet_t_fc_o(global_hyper_t))
