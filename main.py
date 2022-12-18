@@ -139,7 +139,7 @@ if __name__ == "__main__":
                 if freeze: # For TransPoseNet
                     model.eval()
                     with torch.no_grad():
-                        transformers_res = model.forward_transformers(minibatch)
+                        transformers_res = model.forward_transformers(minibatch.get('img'))
                     model.train()
 
                 # Zero the gradients
@@ -149,9 +149,8 @@ if __name__ == "__main__":
                 if freeze:
                     res = model.forward_heads(transformers_res)
                 else:
-                    res = model(minibatch)
+                    est_pose = model(minibatch.get('img'))
 
-                est_pose = res.get('pose')
                 # Pose loss
                 criterion = pose_loss(est_pose, gt_pose)
 

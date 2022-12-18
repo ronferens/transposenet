@@ -34,6 +34,7 @@ class BackboneBase(nn.Module):
 class Backbone(BackboneBase):
     def __init__(self, backbone_model_path: str, reduction):
         backbone = torch.load(backbone_model_path)
+        backbone.set_swish(memory_efficient=False)
         super().__init__(backbone, reduction)
 
 
@@ -50,16 +51,22 @@ class Joiner(nn.Sequential):
             # position encoding
             ret = self[1](x)
             if isinstance(ret, tuple):
-                p_emb, m_emb = ret
+                # p_emb, m_emb = ret
+
+                device = xs['reduction_4'].tensors[0].device
+                p_emb = torch.zeros([1, 256], device=device)
+                m_emb = torch.zeros([1, 256, x.tensors[0].shape[-1], x.tensors[0].shape[-1]], device=device)
+
                 pos.append([p_emb.to(x.tensors.dtype), m_emb.to(x.tensors.dtype)])
             else:
                 pos.append(ret.to(x.tensors.dtype))
 
         return out, pos
 
-def build_backbone(config):
-    position_embedding = build_position_encoding(config)
-    backbone = Backbone(config.get("backbone"), config.get("reduction"))
+
+def build_backbone(hidden_dim, learn_embedding_with_pose_token, backbone, reduction):
+    position_embedding = build_position_encoding(hidden_dim, learn_embedding_with_pose_token)
+    backbone = Backbone(backbone, reduction)
     model = Joiner(backbone, position_embedding)
     model.num_channels = backbone.num_channels
     return model

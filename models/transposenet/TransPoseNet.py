@@ -19,11 +19,13 @@ class TransPoseNet(nn.Module):
         """
         super().__init__()
 
-        config["backbone"] = pretrained_path
-        config["learn_embedding_with_pose_token"] = True
+        backbone = pretrained_path
+        learn_embedding_with_pose_token = True
+        hidden_dim = config['hidden_dim']
+        reduction = config['reduction']
 
         # CNN backbone
-        self.backbone = build_backbone(config)
+        self.backbone = build_backbone(hidden_dim, learn_embedding_with_pose_token, backbone, reduction)
 
         # Position (t) and orientation (rot) encoders
         self.transformer_t = Transformer(config)
@@ -55,7 +57,7 @@ class TransPoseNet(nn.Module):
             global_desc_t: latent representation from the position encoder
             global_dec_rot: latent representation from the orientation encoder
         """
-        samples = data.get('img')
+        samples = data
 
         # Handle data structures
         if isinstance(samples, (list, torch.Tensor)):
@@ -78,25 +80,22 @@ class TransPoseNet(nn.Module):
         global_desc_t = local_descs_t[:, 0, :]
         global_desc_rot = local_descs_rot[:, 0, :]
 
-        return {'global_desc_t':global_desc_t, 'global_desc_rot':global_desc_rot}
+        return global_desc_t, global_desc_rot
 
-    def forward_heads(self, transformers_res):
+    def forward_heads(self, global_desc_t, global_desc_rot):
         """
         The forward pass execpts a dictionary with two keys-values:
         global_desc_t: latent representation from the position encoder
         global_dec_rot: latent representation from the orientation encoder
         returns: dictionary with key-value 'pose'--expected pose (NX7)
         """
-        global_desc_t = transformers_res.get('global_desc_t')
-        global_desc_rot = transformers_res.get('global_desc_rot')
-
         x_t = self.regressor_head_t(global_desc_t)
         if self.use_prior:
             global_desc_rot = torch.cat((global_desc_t, global_desc_rot), dim=1)
 
         x_rot = self.regressor_head_rot(global_desc_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
-        return {'pose': expected_pose}
+        return expected_pose
 
     def forward(self, data):
         """ The forward pass expects a dictionary with key-value 'img' -- NestedTensor, which consists of:
@@ -105,9 +104,9 @@ class TransPoseNet(nn.Module):
 
             returns dictionary with key-value 'pose'--expected pose (NX7)
         """
-        transformers_encoders_res = self.forward_transformers(data)
+        global_desc_t, global_desc_rot = self.forward_transformers(data)
         # Regress the pose from the image descriptors
-        heads_res = self.forward_heads(transformers_encoders_res)
+        heads_res = self.forward_heads(global_desc_t, global_desc_rot)
         return heads_res
 
 

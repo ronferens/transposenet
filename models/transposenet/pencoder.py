@@ -56,6 +56,7 @@ class NestedTensor(object):
     def __repr__(self):
         return str(self.tensors)
 
+
 def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
     # TODO make this more general
     if tensor_list[0].ndim == 3:
@@ -111,6 +112,7 @@ def _onnx_nested_tensor_from_tensor_list(tensor_list):
 
     return NestedTensor(tensor, mask=mask)
 
+
 class PositionEmbeddingLearnedWithPoseToken(nn.Module):
     """
     Absolute pos embedding, learned.
@@ -138,12 +140,18 @@ class PositionEmbeddingLearnedWithPoseToken(nn.Module):
 
         p_emb = torch.cat([self.pose_token_embed(p),self.pose_token_embed(p)]).repeat(x.shape[0], 1)
 
+        m_emb_1 = torch.zeros([1, 256, x_emb.shape[0], x_emb.shape[0]], device=x.device)
+
         # embed of position in the activation map
         m_emb = torch.cat([
             x_emb.unsqueeze(0).repeat(h, 1, 1),
             y_emb.unsqueeze(1).repeat(1, w, 1),
         ], dim=-1).permute(2, 0, 1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
-        return p_emb, m_emb
+
+        m_emb_1 = m_emb
+
+        return p_emb, m_emb_1
+
 
 class PositionEmbeddingLearned(nn.Module):
     """
@@ -173,14 +181,11 @@ class PositionEmbeddingLearned(nn.Module):
         return pos
 
 
-def build_position_encoding(config):
-    hidden_dim = config.get("hidden_dim")
-    N_steps = hidden_dim // 2
-    learn_embedding_with_pose_token = config.get("learn_embedding_with_pose_token")
+def build_position_encoding(hidden_dim, learn_embedding_with_pose_token):
+    n_steps = hidden_dim // 2
     if learn_embedding_with_pose_token:
-        position_embedding = PositionEmbeddingLearnedWithPoseToken(N_steps)
+        position_embedding = PositionEmbeddingLearnedWithPoseToken(n_steps)
     else:
-        position_embedding = PositionEmbeddingLearned(N_steps)
-
+        position_embedding = PositionEmbeddingLearned(n_steps)
 
     return position_embedding
