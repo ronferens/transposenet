@@ -16,7 +16,7 @@ from omegaconf import OmegaConf
 def main(cfg) -> None:
 
     # Initiate logger and output folder for the experiment
-    log_path = utils.init_logger()
+    log_path = utils.init_logger(outpath=cfg.inputs.output_path)
     utils.save_config_to_output_dir(log_path, cfg)
 
     # Record execution details

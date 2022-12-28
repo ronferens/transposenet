@@ -49,15 +49,17 @@ class TransPoseNet(nn.Module):
         # =========================================
         # Hypernetwork
         # =========================================
-        self.hyper_dim = config.get('hyper_dim')
+        self.hyper_dim_t = config.get('hyper_dim_t')
         self.hypernet_t = Transformer(config)
-        self.hypernet_t_fc_h1 = nn.Linear(decoder_dim, self.hyper_dim * (decoder_dim + 1))
-        self.hypernet_t_fc_h2 = nn.Linear(decoder_dim, (self.hyper_dim // 2) * (self.hyper_dim + 1))
-        self.hypernet_t_fc_o = nn.Linear(decoder_dim, 3 * ((self.hyper_dim // 2) + 1))
+        self.hypernet_t_fc_h1 = nn.Linear(decoder_dim, self.hyper_dim_t * (decoder_dim + 1))
+        self.hypernet_t_fc_h2 = nn.Linear(decoder_dim, (self.hyper_dim_t // 2) * (self.hyper_dim_t + 1))
+        self.hypernet_t_fc_o = nn.Linear(decoder_dim, 3 * ((self.hyper_dim_t // 2) + 1))
+
+        self.hyper_dim_rot = config.get('hyper_dim_rot')
         self.hypernet_rot = Transformer(config)
-        self.hypernet_rot_fc_h1 = nn.Linear(decoder_dim, self.hyper_dim * (decoder_dim + 1))
-        self.hypernet_rot_fc_h2 = nn.Linear(decoder_dim, (self.hyper_dim // 2) * (self.hyper_dim + 1))
-        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * ((self.hyper_dim // 2) + 1))
+        self.hypernet_rot_fc_h1 = nn.Linear(decoder_dim, self.hyper_dim_rot * (decoder_dim + 1))
+        self.hypernet_rot_fc_h2 = nn.Linear(decoder_dim, self.hyper_dim_rot * (self.hyper_dim_rot + 1))
+        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * (self.hyper_dim_rot + 1))
 
         # The learned pose token for position (t) and orientation (rot)
         self.hypernet_token_embed_t = nn.Parameter(torch.zeros((1, decoder_dim)), requires_grad=True)
@@ -71,8 +73,8 @@ class TransPoseNet(nn.Module):
         # Regressors
         # =========================================
         # Regressors for position (t) and orientation (rot)
-        self.regressor_head_t = PoseRegressor(decoder_dim, self.hyper_dim, 3)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hyper_dim, 4, self.use_prior)
+        self.regressor_head_t = PoseRegressor(decoder_dim, self.hyper_dim_t, 3, hidden_scale=0.5)
+        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hyper_dim_rot, 4, hidden_scale=1.0)
 
     def _swish(self, x):
         return x * F.sigmoid(x)
@@ -185,16 +187,17 @@ class TransPoseNet(nn.Module):
 class PoseRegressor(nn.Module):
     """ A simple MLP to regress a pose component"""
 
-    def __init__(self, decoder_dim, hidden_dim, output_dim, use_prior=False):
+    def __init__(self, decoder_dim, hidden_dim, output_dim, hidden_scale=1.0):
         """
         decoder_dim: (int) the input dimension
         output_dim: (int) the output dimension
-        use_prior: (bool) whether to use prior information
+        hidden_scale: (float) Ratio between the input and the hidden layers' dimensions
         """
         super().__init__()
         self.decoder_dim = decoder_dim
         self.output_dim = output_dim
         self.hidden_dim = hidden_dim
+        self.hidden_scale = hidden_scale
 
     @staticmethod
     def batched_linear_layer(x, wb):
@@ -215,8 +218,8 @@ class PoseRegressor(nn.Module):
                                                                               self.hidden_dim)))
         x = self._swish(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
                                                                               (self.hidden_dim + 1),
-                                                                              (self.hidden_dim // 2))))
+                                                                              (int(self.hidden_dim * self.hidden_scale)))))
         x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
-                                                                 ((self.hidden_dim // 2) + 1),
+                                                                 (int(self.hidden_dim * self.hidden_scale) + 1),
                                                                  self.output_dim))
         return x

@@ -5,7 +5,7 @@ inputs:
   dataset_path: '/media/dev/data/datasets/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
   checkpoint_path: null
-  models_path: './out/run_04_12_22_17_58'
+  models_path: './out/run_28_12_22_12_12'
   models_to_evaluate: null
 
 general:
@@ -17,7 +17,8 @@ transposenet:
   num_encoder_layers: 6
   dim_feedforward: 256
   hidden_dim: 256
-  hyper_dim: 256
+  hyper_dim_t: 256
+  hyper_dim_rot: 512
   nheads: 4
   reduction:
     t: 'reduction_4'

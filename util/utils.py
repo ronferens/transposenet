@@ -24,13 +24,12 @@ def get_stamp_from_log():
     return split(logging.getLogger().handlers[0].baseFilename)[-1].replace(".log", "")
 
 
-def create_output_dir(name):
+def create_output_dir(out_dir):
     """
     Create a new directory for outputs, if it does not already exist
-    :param name: (str) the name of the directory
+    :param out_dir: (str) the name of the directory
     :return: the path to the outpur directory
     """
-    out_dir = join(getcwd(), name)
     if not exists(out_dir):
         makedirs(out_dir, exist_ok=True)
     return out_dir
@@ -54,9 +53,9 @@ def init_logger(outpath: str = None, suffix: str = None) -> str:
 
         # Creating logs' folder is needed
         if outpath is not None:
-            log_path = create_output_dir(outpath)
+            log_path = create_output_dir(join(outpath, filename))
         else:
-            log_path = create_output_dir(join('out', filename))
+            log_path = create_output_dir(join(getcwd(), 'out', filename))
 
         if suffix is not None:
             filename += suffix

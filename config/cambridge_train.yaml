@@ -6,6 +6,7 @@ inputs:
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_train.csv'
   checkpoint_path: null
   experiment: null
+  output_path: '/media/dev/data/transposenet_output'
 
 general:
   n_freq_print: 5
@@ -30,7 +31,8 @@ transposenet:
   num_encoder_layers: 6
   dim_feedforward: 256
   hidden_dim: 256
-  hyper_dim: 256
+  hyper_dim_t: 256
+  hyper_dim_rot: 512
   dropout: 0.1
   nheads: 4
   freeze: false
