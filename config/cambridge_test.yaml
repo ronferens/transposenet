@@ -5,7 +5,7 @@ inputs:
   dataset_path: '/media/dev/data/datasets/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
   checkpoint_path: null
-  models_path: './out/run_28_12_22_12_12'
+  models_path: '/media/dev/data/transposenet_output/run_30_12_22_21_49'
   models_to_evaluate: null
 
 general:
@@ -23,4 +23,4 @@ transposenet:
   reduction:
     t: 'reduction_4'
     q: 'reduction_3'
-  use_prior_t_for_rot: false
+  use_prior_t_for_rot: False

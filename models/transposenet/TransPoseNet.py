@@ -72,9 +72,14 @@ class TransPoseNet(nn.Module):
         # =========================================
         # Regressors
         # =========================================
-        # Regressors for position (t) and orientation (rot)
-        self.regressor_head_t = PoseRegressor(decoder_dim, self.hyper_dim_t, 3, hidden_scale=0.5)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, self.hyper_dim_rot, 4, hidden_scale=1.0)
+        # (1) Hypernetworks' regressors for position (t) and orientation (rot)
+        self.regressor_hyper_t = PoseRegressorHyper(decoder_dim, self.hyper_dim_t, 3, hidden_scale=0.5)
+        self.regressor_hyper_rot = PoseRegressorHyper(decoder_dim, self.hyper_dim_rot, 4, hidden_scale=1.0)
+
+        # (2) Regressors for position (t) and orientation (rot)
+        self.use_prior = config.get("use_prior_t_for_rot")
+        self.regressor_head_t = PoseRegressor(decoder_dim, 3)
+        self.regressor_head_rot = PoseRegressor(decoder_dim, 4, self.use_prior)
 
     def _swish(self, x):
         return x * F.sigmoid(x)
@@ -162,11 +167,22 @@ class TransPoseNet(nn.Module):
         ##################################################
         # Regression
         ##################################################
-        x_t = self.regressor_head_t(global_desc_t, w_t)
+        # (1) Hypernetwork's regressors
+        x_hyper_t = self.regressor_hyper_t(global_desc_t, w_t)
+        x_hyper_rot = self.regressor_hyper_rot(global_desc_rot, w_rot)
+
+        # (2) Trained regressors
+        x_t = self.regressor_head_t(global_desc_t)
         if self.use_prior:
             global_desc_rot = torch.cat((global_desc_t, global_desc_rot), dim=1)
 
-        x_rot = self.regressor_head_rot(global_desc_rot, w_rot)
+        x_rot = self.regressor_head_rot(global_desc_rot)
+
+        ##################################################
+        # Output
+        ##################################################
+        x_t = torch.add(x_t, x_hyper_t)
+        x_rot = torch.add(x_rot, x_hyper_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
         return {'pose': expected_pose}
 
@@ -184,7 +200,7 @@ class TransPoseNet(nn.Module):
         return heads_res
 
 
-class PoseRegressor(nn.Module):
+class PoseRegressorHyper(nn.Module):
     """ A simple MLP to regress a pose component"""
 
     def __init__(self, decoder_dim, hidden_dim, output_dim, hidden_scale=1.0):
@@ -223,3 +239,38 @@ class PoseRegressor(nn.Module):
                                                                  (int(self.hidden_dim * self.hidden_scale) + 1),
                                                                  self.output_dim))
         return x
+
+
+class PoseRegressor(nn.Module):
+    """ A simple MLP to regress a pose component"""
+
+    def __init__(self, decoder_dim, output_dim, use_prior=False):
+        """
+        decoder_dim: (int) the input dimension
+        output_dim: (int) the outpur dimension
+        use_prior: (bool) whether to use prior information
+        """
+        super().__init__()
+        ch = 1024
+        self.fc_h = nn.Linear(decoder_dim, ch)
+        self.use_prior = use_prior
+        if self.use_prior:
+            self.fc_h_prior = nn.Linear(decoder_dim * 2, ch)
+        self.fc_o = nn.Linear(ch, output_dim)
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
+
+    def forward(self, x):
+        """
+        Forward pass
+        """
+        if self.use_prior:
+            x = F.gelu(self.fc_h_prior(x))
+        else:
+            x = F.gelu(self.fc_h(x))
+
+        return self.fc_o(x)
