@@ -1,3 +1,4 @@
+import pandas as pd
 import torch
 import numpy as np
 import logging
@@ -188,6 +189,7 @@ def main(cfg) -> None:
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
         stats = np.zeros((len(dataloader.dataset), 3))
+        hyperparams = pd.DataFrame(columns=['w_t_h1', 'w_t_h2', 'w_t_o', 'w_rot_h1', 'w_rot_h2', 'w_rot_o', 'loc'])
 
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
@@ -207,16 +209,31 @@ def main(cfg) -> None:
                 # Collect statistics
                 stats[i, 0] = posit_err.item()
                 stats[i, 1] = orient_err.item()
-                stats[i, 2] = (toc - tic) * 1000
+                stats[i, 2] = (toc - tic) * 1000.0
 
                 logging.info("Pose error: {:.3f}[m], {:.3f}[deg], inferred in {:.2f}[ms]".format(
                     stats[i, 0], stats[i, 1], stats[i, 2]))
+
+                # Save hypernetwork's output (weights)
+                w_t, w_rot = model.get_hypernets_weights()
+                hyperparams = hyperparams.append({'w_t_h1': w_t['w_t_h1'],
+                                                  'w_t_h2': w_t['w_t_h2'],
+                                                  'w_t_o': w_t['w_t_o'],
+                                                  'w_rot_h1': w_t['w_rot_h1'],
+                                                  'w_rot_h2': w_t['w_rot_h2'],
+                                                  'w_rot_o': w_t['w_rot_o'],
+                                                  'pose': gt_pose
+                                                  },
+                                                 ignore_index=True)
+
 
         # Record overall statistics
         logging.info("Performance of {} on {}".format(cfg.inputs.checkpoint_path, cfg.inputs.labels_file))
         logging.info(
             "Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.nanmedian(stats[:, 0]), np.nanmedian(stats[:, 1])))
         logging.info("Mean inference time:{:.2f}[ms]".format(np.mean(stats[:, 2])))
+
+        hyperparams.to_csv('hypernetwork_weights.csv')
 
 
 if __name__ == "__main__":

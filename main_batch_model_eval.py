@@ -26,7 +26,7 @@ def sort_models_name(models_list):
     return models_list
 
 
-@hydra.main(version_base=None, config_path="config", config_name="cambridge_test")
+@hydra.main(version_base=None, config_path="config", config_name="test")
 def main(cfg) -> None:
     assert cfg.inputs.models_path is not None, 'You must specify the models_path'
     utils.init_logger(outpath=cfg.inputs.models_path, suffix='_batch_eval')
@@ -92,7 +92,7 @@ def main(cfg) -> None:
                          'num_workers': cfg.general.n_workers}
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
-        stats = np.zeros((len(dataloader.dataset), 5))
+        stats = np.zeros((len(dataloader.dataset), 3))
 
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
@@ -103,10 +103,8 @@ def main(cfg) -> None:
 
                 # Forward pass to predict the pose
                 tic = time.time()
-                res = model(minibatch)
+                est_pose = model(minibatch).get('pose')
                 toc = time.time()
-
-                est_pose = res.get('pose')
 
                 # Evaluate error
                 posit_err, orient_err = utils.pose_err(est_pose, gt_pose)
@@ -122,6 +120,9 @@ def main(cfg) -> None:
                                    checkpoint_path,
                                    np.nanmedian(stats[:, 0]),
                                    np.nanmedian(stats[:, 1])])
+
+        logging.info("Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.nanmedian(stats[:, 0]),
+                                                                        np.nanmedian(stats[:, 1])))
 
     # Saving the results
     col_chk_pnt = 'checkpoint'

@@ -2,8 +2,8 @@ inputs:
   model_name: 'transposenet'
   mode: 'train'
   backbone_path: './models/backbones/efficient-net-b0.pth'
-  dataset_path: '/home/dev/Data/cambridge'
-  labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_train.csv'
+  dataset_path: '/home/dev/Data/7scenes'
+  labels_file: './datasets/7Scenes/abs_7scenes_pose.csv_chess_train.csv'
   checkpoint_path: null
   experiment: null
   output_path: '/media/dev/storage1/transposenet_output'
@@ -11,7 +11,7 @@ inputs:
 general:
   n_freq_print: 5
   n_freq_checkpoint: 50 #10 #50
-  start_save_epoch: 200 #10 #200
+  start_save_epoch: 100 #10 #100
   n_workers: 4
   device_id: 'cuda:0'
   batch_size: 8
@@ -20,14 +20,14 @@ general:
 transposenet:
   loss:
     learnable: True
-    s_x: -3
-    s_q: -6.5
+    s_x: -5
+    s_q: -10
     norm: 2
   lr: 1e-4
   weight_decay: 1e-4
   eps: 1e-10
-  lr_scheduler_gamma: 0.75
-  lr_scheduler_step_size: 200
+  lr_scheduler_gamma: 0.5
+  lr_scheduler_step_size: 100
   num_encoder_layers: 6
   dim_feedforward: 256
   hidden_dim: 256

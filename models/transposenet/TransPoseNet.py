@@ -69,6 +69,9 @@ class TransPoseNet(nn.Module):
         self.hypernet_input_proj_t = nn.Conv2d(self.backbone.num_channels[0], decoder_dim, kernel_size=1)
         self.hypernet_input_proj_rot = nn.Conv2d(self.backbone.num_channels[1], decoder_dim, kernel_size=1)
 
+        self.w_t = None
+        self.w_rot = None
+
         # =========================================
         # Regressors
         # =========================================
@@ -161,15 +164,15 @@ class TransPoseNet(nn.Module):
         w_rot_h2 = self._swish(self.hypernet_rot_fc_h2(global_hyper_rot))
         w_rot_o = self._swish(self.hypernet_rot_fc_o(global_hyper_rot))
 
-        w_t = {'w_h1': w_t_h1, 'w_h2': w_t_h2, 'w_o': w_t_o}
-        w_rot = {'w_h1': w_rot_h1, 'w_h2': w_rot_h2, 'w_o': w_rot_o}
+        self.w_t = {'w_h1': w_t_h1, 'w_h2': w_t_h2, 'w_o': w_t_o}
+        self.w_rot = {'w_h1': w_rot_h1, 'w_h2': w_rot_h2, 'w_o': w_rot_o}
 
         ##################################################
         # Regression
         ##################################################
         # (1) Hypernetwork's regressors
-        x_hyper_t = self.regressor_hyper_t(global_desc_t, w_t)
-        x_hyper_rot = self.regressor_hyper_rot(global_desc_rot, w_rot)
+        x_hyper_t = self.regressor_hyper_t(global_desc_t, self.w_t)
+        x_hyper_rot = self.regressor_hyper_rot(global_desc_rot, self.w_rot)
 
         # (2) Trained regressors
         x_t = self.regressor_head_t(global_desc_t)
@@ -198,6 +201,9 @@ class TransPoseNet(nn.Module):
         # Regress the pose from the image descriptors
         heads_res = self.forward_heads(transformers_encoders_res)
         return heads_res
+
+    def get_hypernets_weights(self):
+        return self.w_t, self.w_rot
 
 
 class PoseRegressorHyper(nn.Module):
