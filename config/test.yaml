@@ -5,7 +5,7 @@ inputs:
   dataset_path: '/home/dev/Data/7scenes'
   labels_file: './datasets/7Scenes/abs_7scenes_pose.csv_pumpkin_test.csv'
   checkpoint_path: null
-  models_path: '/media/dev/storage1/transposenet_output/run_07_02_23_13_52'
+  models_path: '/media/dev/storage1/transposenet_output/run_08_02_23_18_44'
   models_to_evaluate: null
 
 general:

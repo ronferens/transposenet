@@ -212,7 +212,7 @@ class TransPoseNet(nn.Module):
         x_rot = self.quat_mul(x_rot, x_hyper_rot)
         # x_rot = torch.add(x_rot, x_hyper_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
-        return {'pose': expected_pose, 'w_t_o': self.w_t['w_o'], 'w_rot_o': self.w_rot['w_o']}
+        return {'pose': expected_pose, 'w_t': self.w_t['w_o'], 'w_rot': self.w_rot['w_o']}
 
     def forward(self, data):
         """ The forward pass expects a dictionary with key-value 'img' -- NestedTensor, which consists of:

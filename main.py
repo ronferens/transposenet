@@ -189,7 +189,8 @@ def main(cfg) -> None:
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
         stats = np.zeros((len(dataloader.dataset), 3))
-        hyperparams = np.zeros((len(dataloader.dataset), 387 + 2052))
+        hyperparams = np.zeros((len(dataloader.dataset), 387 + 2052))  # For saving the output layer's weights
+        hyperparams = np.zeros((len(dataloader.dataset), 65792 + 131584))  # For saving the input layer's weights
 
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
@@ -202,8 +203,8 @@ def main(cfg) -> None:
                 tic = time.time()
                 res = model(minibatch)
                 est_pose = res.get('pose')
-                w_t = res.get('w_t_o')
-                w_rot = res.get('w_rot_o')
+                w_t = res.get('w_t')
+                w_rot = res.get('w_rot')
                 toc = time.time()
 
                 # Evaluate error
@@ -228,7 +229,7 @@ def main(cfg) -> None:
         logging.info("Mean inference time:{:.2f}[ms]".format(np.mean(stats[:, 2])))
 
         hyperparams_data = pd.DataFrame(hyperparams)
-        hyperparams_data.to_csv('hypernetwork_weights.csv')
+        hyperparams_data.to_csv('hypernetwork_weights_w_in.csv')
 
 
 if __name__ == "__main__":

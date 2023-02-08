@@ -4,18 +4,18 @@ inputs:
   backbone_path: './models/backbones/efficient-net-b0.pth'
   dataset_path: '/home/dev/Data/7scenes'
   labels_file: './datasets/7Scenes/abs_7scenes_pose.csv_pumpkin_train.csv'
-  checkpoint_path: null
+  checkpoint_path: '/media/dev/storage1/transposenet_output/run_08_02_23_07_31/run_08_02_23_07_31_checkpoint-40.pth'
   experiment: null
   output_path: '/media/dev/storage1/transposenet_output'
 
 general:
   n_freq_print: 5
   n_freq_checkpoint: 5 #25 #10
-  start_save_epoch: 25 #50 #10
+  start_save_epoch: 0 #50 #10
   n_workers: 4
   device_id: 'cuda:0'
   batch_size: 8
-  n_epochs: 150 #250 #100
+  n_epochs: 25 #250 #100
 
 transposenet:
   loss:
@@ -35,7 +35,7 @@ transposenet:
   hyper_dim_rot: 512
   dropout: 0.1
   nheads: 4
-  freeze: False
+  freeze: True
   use_prior_t_for_rot: False
   reduction:
     t: 'reduction_4'
