@@ -13,7 +13,7 @@ import hydra
 from omegaconf import OmegaConf
 
 
-@hydra.main(version_base=None, config_path="config", config_name="cambridge_train")
+@hydra.main(version_base=None, config_path="config", config_name="scenes_train")
 def main(cfg) -> None:
 
     # Initiate logger and output folder for the experiment
@@ -189,7 +189,7 @@ def main(cfg) -> None:
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
         stats = np.zeros((len(dataloader.dataset), 3))
-        hyperparams = pd.DataFrame(columns=['w_t_h1', 'w_t_h2', 'w_t_o', 'w_rot_h1', 'w_rot_h2', 'w_rot_o', 'loc'])
+        hyperparams = np.zeros((len(dataloader.dataset), 387 + 2052))
 
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
@@ -200,7 +200,10 @@ def main(cfg) -> None:
 
                 # Forward pass to predict the pose
                 tic = time.time()
-                est_pose = model(minibatch).get('pose')
+                res = model(minibatch)
+                est_pose = res.get('pose')
+                w_t = res.get('w_t_o')
+                w_rot = res.get('w_rot_o')
                 toc = time.time()
 
                 # Evaluate error
@@ -215,16 +218,7 @@ def main(cfg) -> None:
                     stats[i, 0], stats[i, 1], stats[i, 2]))
 
                 # Save hypernetwork's output (weights)
-                w_t, w_rot = model.get_hypernets_weights()
-                hyperparams = hyperparams.append({'w_t_h1': w_t['w_t_h1'],
-                                                  'w_t_h2': w_t['w_t_h2'],
-                                                  'w_t_o': w_t['w_t_o'],
-                                                  'w_rot_h1': w_t['w_rot_h1'],
-                                                  'w_rot_h2': w_t['w_rot_h2'],
-                                                  'w_rot_o': w_t['w_rot_o'],
-                                                  'pose': gt_pose
-                                                  },
-                                                 ignore_index=True)
+                hyperparams[i, :] = np.concatenate((w_t.data.cpu(), w_rot.data.cpu()), axis=1).reshape(-1)
 
 
         # Record overall statistics
@@ -233,7 +227,8 @@ def main(cfg) -> None:
             "Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.nanmedian(stats[:, 0]), np.nanmedian(stats[:, 1])))
         logging.info("Mean inference time:{:.2f}[ms]".format(np.mean(stats[:, 2])))
 
-        hyperparams.to_csv('hypernetwork_weights.csv')
+        hyperparams_data = pd.DataFrame(hyperparams)
+        hyperparams_data.to_csv('hypernetwork_weights.csv')
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@ The TransPoseNet model
 import torch
 import torch.nn.functional as F
 from torch import nn
+
+import util.utils
 from .transformer_encoder import Transformer
 from .pencoder import NestedTensor, nested_tensor_from_tensor_list
 from .backbone import build_backbone
@@ -86,6 +88,28 @@ class TransPoseNet(nn.Module):
 
     def _swish(self, x):
         return x * F.sigmoid(x)
+
+    @staticmethod
+    def quat_mul(q, r):
+        """
+        Multiply quaternion(s) q with quaternion(s) r.
+        Expects two equally-sized tensors of shape (*, 4), where * denotes any number of dimensions.
+        Returns q*r as a tensor of shape (*, 4).
+        reference: https://github.com/facebookresearch/QuaterNet/blob/main/common/quaternion.py
+        """
+        assert q.shape[-1] == 4
+        assert r.shape[-1] == 4
+
+        original_shape = q.shape
+
+        # Compute outer product
+        terms = torch.bmm(r.view(-1, 4, 1), q.view(-1, 1, 4))
+
+        w = terms[:, 0, 0] - terms[:, 1, 1] - terms[:, 2, 2] - terms[:, 3, 3]
+        x = terms[:, 0, 1] + terms[:, 1, 0] - terms[:, 2, 3] + terms[:, 3, 2]
+        y = terms[:, 0, 2] + terms[:, 1, 3] + terms[:, 2, 0] - terms[:, 3, 1]
+        z = terms[:, 0, 3] - terms[:, 1, 2] + terms[:, 2, 1] + terms[:, 3, 0]
+        return torch.stack((w, x, y, z), dim=1).view(original_shape)
 
     def forward_transformers(self, data):
         """
@@ -185,9 +209,10 @@ class TransPoseNet(nn.Module):
         # Output
         ##################################################
         x_t = torch.add(x_t, x_hyper_t)
-        x_rot = torch.add(x_rot, x_hyper_rot)
+        x_rot = self.quat_mul(x_rot, x_hyper_rot)
+        # x_rot = torch.add(x_rot, x_hyper_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
-        return {'pose': expected_pose}
+        return {'pose': expected_pose, 'w_t_o': self.w_t['w_o'], 'w_rot_o': self.w_rot['w_o']}
 
     def forward(self, data):
         """ The forward pass expects a dictionary with key-value 'img' -- NestedTensor, which consists of:
@@ -201,9 +226,6 @@ class TransPoseNet(nn.Module):
         # Regress the pose from the image descriptors
         heads_res = self.forward_heads(transformers_encoders_res)
         return heads_res
-
-    def get_hypernets_weights(self):
-        return self.w_t, self.w_rot
 
 
 class PoseRegressorHyper(nn.Module):
@@ -238,9 +260,12 @@ class PoseRegressorHyper(nn.Module):
         x = self._swish(self.batched_linear_layer(x, weights.get('w_h1').view(weights.get('w_h1').shape[0],
                                                                               (self.decoder_dim + 1),
                                                                               self.hidden_dim)))
-        x = self._swish(self.batched_linear_layer(x, weights.get('w_h2').view(weights.get('w_h2').shape[0],
-                                                                              (self.hidden_dim + 1),
-                                                                              (int(self.hidden_dim * self.hidden_scale)))))
+        for index in range(len(weights.keys()) - 2):
+            x = self._swish(self.batched_linear_layer(x,
+                                                      weights.get(f'w_h{index + 2}').view(
+                                                          weights.get(f'w_h{index + 2}').shape[0],
+                                                          (self.hidden_dim + 1),
+                                                          (int(self.hidden_dim * self.hidden_scale)))))
         x = self.batched_linear_layer(x, weights.get('w_o').view(weights.get('w_o').shape[0],
                                                                  (int(self.hidden_dim * self.hidden_scale) + 1),
                                                                  self.output_dim))
