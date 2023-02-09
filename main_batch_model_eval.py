@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import json
 import logging
-from util import utils
+from util import utils, rot_utils
 import time
 from datasets.CameraPoseDataset import CameraPoseDataset
 from models.pose_regressors import get_model
@@ -106,8 +106,25 @@ def main(cfg) -> None:
                 est_pose = model(minibatch).get('pose')
                 toc = time.time()
 
+                if cfg[cfg.inputs.model_name]['rot_mode'] == "4D_norm":
+                    est_rot = rot_utils.compute_rotation_matrix_from_quaternion(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "6D_GM":
+                    est_rot = rot_utils.compute_rotation_matrix_from_ortho6d(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "9D_SVD":
+                    est_rot = rot_utils.symmetric_orthogonalization(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "10D":
+                    est_rot = rot_utils.compute_rotation_matrix_from_10d(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "3D_Euler":
+                    est_rot = rot_utils.compute_rotation_matrix_from_euler(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "4D_Axis":
+                    est_rot = rot_utils.compute_rotation_matrix_from_axisAngle(est_pose[:, 3:])  # b*3*3
+                else:
+                    raise NotImplementedError
+
                 # Evaluate error
-                posit_err, orient_err = utils.pose_err(est_pose, gt_pose)
+                est_pose_quat = torch.cat((est_pose[:, :3],
+                                           rot_utils.compute_quaternions_from_rotation_matrices(est_rot)), dim=1)
+                posit_err, orient_err = utils.pose_err(est_pose_quat, gt_pose)
 
                 # Collect statistics
                 stats[i, 0] = posit_err.item()

@@ -16,6 +16,7 @@ general:
   device_id: 'cuda:0'
 
 transposenet:
+  rot_dim: 6
   num_encoder_layers: 6
   dim_feedforward: 256
   hidden_dim: 256

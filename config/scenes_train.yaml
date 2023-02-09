@@ -18,10 +18,11 @@ general:
   n_epochs: 25 #250 #100
 
 transposenet:
+  rot_dim: 6
   loss:
     learnable: True
-    s_x: -3
-    s_q: -15
+    s_x: 0.0
+    s_q: -3.0
     norm: 2
   lr: 1e-4
   weight_decay: 1e-4

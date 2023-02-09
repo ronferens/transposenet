@@ -23,6 +23,22 @@ class TransPoseNet(nn.Module):
         config["backbone"] = pretrained_path
         config["learn_embedding_with_pose_token"] = True
 
+        #  Setting the dimension of the regression layer output:
+        if config['rot_mode'] == "4D_norm":
+            self._rot_dim = 4
+        elif config['rot_mode'] == "6D_GM":
+            self._rot_dim = 6
+        elif config['rot_mode'] == "9D_SVD":
+            self._rot_dim = 9
+        elif config['rot_mode'] == "10D":
+            self._rot_dim = 10
+        elif config['rot_mode'] == "3D_Euler":
+            self._rot_dim = 3
+        elif config['rot_mode'] == "4D_Axis":
+            self._rot_dim = 4
+        else:
+            raise NotImplementedError
+
         # =========================================
         # CNN Backbone
         # =========================================
@@ -61,7 +77,7 @@ class TransPoseNet(nn.Module):
         self.hypernet_rot = Transformer(config)
         self.hypernet_rot_fc_h1 = nn.Linear(decoder_dim, self.hyper_dim_rot * (decoder_dim + 1))
         self.hypernet_rot_fc_h2 = nn.Linear(decoder_dim, self.hyper_dim_rot * (self.hyper_dim_rot + 1))
-        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, 4 * (self.hyper_dim_rot + 1))
+        self.hypernet_rot_fc_o = nn.Linear(decoder_dim, self._rot_dim * (self.hyper_dim_rot + 1))
 
         # The learned pose token for position (t) and orientation (rot)
         self.hypernet_token_embed_t = nn.Parameter(torch.zeros((1, decoder_dim)), requires_grad=True)
@@ -79,14 +95,15 @@ class TransPoseNet(nn.Module):
         # =========================================
         # (1) Hypernetworks' regressors for position (t) and orientation (rot)
         self.regressor_hyper_t = PoseRegressorHyper(decoder_dim, self.hyper_dim_t, 3, hidden_scale=0.5)
-        self.regressor_hyper_rot = PoseRegressorHyper(decoder_dim, self.hyper_dim_rot, 4, hidden_scale=1.0)
+        self.regressor_hyper_rot = PoseRegressorHyper(decoder_dim, self.hyper_dim_rot, self._rot_dim, hidden_scale=1.0)
 
         # (2) Regressors for position (t) and orientation (rot)
         self.use_prior = config.get("use_prior_t_for_rot")
         self.regressor_head_t = PoseRegressor(decoder_dim, 3)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, 4, self.use_prior)
+        self.regressor_head_rot = PoseRegressor(decoder_dim, self._rot_dim, self.use_prior)
 
-    def _swish(self, x):
+    @staticmethod
+    def _swish(x):
         return x * F.sigmoid(x)
 
     @staticmethod
@@ -209,10 +226,9 @@ class TransPoseNet(nn.Module):
         # Output
         ##################################################
         x_t = torch.add(x_t, x_hyper_t)
-        x_rot = self.quat_mul(x_rot, x_hyper_rot)
-        # x_rot = torch.add(x_rot, x_hyper_rot)
+        x_rot = torch.add(x_rot, x_hyper_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
-        return {'pose': expected_pose, 'w_t': self.w_t['w_o'], 'w_rot': self.w_rot['w_o']}
+        return {'pose': expected_pose}
 
     def forward(self, data):
         """ The forward pass expects a dictionary with key-value 'img' -- NestedTensor, which consists of:

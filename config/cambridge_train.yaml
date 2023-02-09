@@ -4,20 +4,21 @@ inputs:
   backbone_path: './models/backbones/efficient-net-b0.pth'
   dataset_path: '/home/dev/Data/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_train.csv'
-  checkpoint_path: null
+  checkpoint_path: '/media/dev/storage1/transposenet_output/run_09_02_23_15_54/run_09_02_23_15_54_checkpoint-1.pth'
   experiment: null
   output_path: '/media/dev/storage1/transposenet_output'
 
 general:
   n_freq_print: 5
-  n_freq_checkpoint: 50 #10 #50
-  start_save_epoch: 200 #10 #200
+  n_freq_checkpoint: 1 #10 #50
+  start_save_epoch: 0 #200 #10 #200
   n_workers: 4
   device_id: 'cuda:0'
   batch_size: 8
   n_epochs: 1000 #200 #1000
 
 transposenet:
+  rot_mode: '4D_norm'
   loss:
     learnable: True
     s_x: -3

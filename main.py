@@ -11,9 +11,10 @@ from os.path import join
 from torch.utils.tensorboard import SummaryWriter
 import hydra
 from omegaconf import OmegaConf
+from util import rot_utils
 
 
-@hydra.main(version_base=None, config_path="config", config_name="scenes_train")
+@hydra.main(version_base=None, config_path="config", config_name='cambridge_train')
 def main(cfg) -> None:
 
     # Initiate logger and output folder for the experiment
@@ -51,7 +52,8 @@ def main(cfg) -> None:
 
     # Load the checkpoint if needed
     if cfg.inputs.checkpoint_path:
-        model.load_state_dict(torch.load(cfg.inputs.checkpoint_path, map_location=device_id))
+        checkpoint = torch.load(cfg.inputs.checkpoint_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
         logging.info("Initializing from checkpoint: {}".format(cfg.inputs.checkpoint_path))
 
     if cfg.inputs.mode == 'train':
@@ -100,12 +102,20 @@ def main(cfg) -> None:
         n_freq_checkpoint = cfg.general.n_freq_checkpoint
         n_epochs = cfg.general.n_epochs
         start_save_epoch = cfg.general.start_save_epoch
+        epoch_start = 0
+
+        # Load the checkpoint if needed
+        if cfg.inputs.checkpoint_path:
+            optim.load_state_dict(checkpoint['optimizer_state_dict'])
+            epoch_start = checkpoint['epoch']
+            posit_err = checkpoint['posit_err']
+            orient_err = checkpoint['orient_err']
 
         # Train
         n_total_samples = 0.0
         loss_vals = []
         sample_count = []
-        for epoch in range(n_epochs):
+        for epoch in range(epoch_start, n_epochs):
 
             # Resetting temporal loss used for logging
             running_loss = 0.0
@@ -135,8 +145,24 @@ def main(cfg) -> None:
                     res = model(minibatch)
 
                 est_pose = res.get('pose')
+
+                if cfg[cfg.inputs.model_name]['rot_mode'] == "4D_norm":
+                    est_rot = rot_utils.compute_rotation_matrix_from_quaternion(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "6D_GM":
+                    est_rot = rot_utils.compute_rotation_matrix_from_ortho6d(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "9D_SVD":
+                    est_rot = rot_utils.symmetric_orthogonalization(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "10D":
+                    est_rot = rot_utils.compute_rotation_matrix_from_10d(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "3D_Euler":
+                    est_rot = rot_utils.compute_rotation_matrix_from_euler(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "4D_Axis":
+                    est_rot = rot_utils.compute_rotation_matrix_from_axisAngle(est_pose[:, 3:])  # b*3*3
+                else:
+                    raise NotImplementedError
+
                 # Pose loss
-                criterion = pose_loss(est_pose, gt_pose)
+                criterion = pose_loss(est_pose[:, :3], est_rot, gt_pose)
 
                 # Collect for recoding and plotting
                 running_loss += criterion.item()
@@ -149,7 +175,9 @@ def main(cfg) -> None:
 
                 # Record loss and performance on train set
                 if batch_idx % n_freq_print == 0:
-                    posit_err, orient_err = utils.pose_err(est_pose.detach(), gt_pose.detach())
+                    est_pose_quat = torch.cat((est_pose[:, :3],
+                                               rot_utils.compute_quaternions_from_rotation_matrices(est_rot)), dim=1)
+                    posit_err, orient_err = utils.pose_err(est_pose_quat.detach(), gt_pose.detach())
                     logging.info("[Batch-{}/Epoch-{}] running camera pose loss: {:.3f}, "
                                  "camera pose error: {:.2f}[m], {:.2f}[deg]".format(
                         batch_idx + 1, epoch + 1, (running_loss / n_samples),
@@ -158,17 +186,30 @@ def main(cfg) -> None:
                     writer.add_scalar("Loss/train", (running_loss / n_samples), n_total_samples)
                     writer.add_scalar("Pose/translation_train", posit_err.mean().item(), n_total_samples)
                     writer.add_scalar("Pose/orientation_train", orient_err.mean().item(), n_total_samples)
+
             # Save checkpoint
             if (epoch % n_freq_checkpoint) == 0 and epoch >= start_save_epoch:
-                torch.save(model.state_dict(),
-                           join(log_path, f'{utils.get_stamp_from_log()}_checkpoint-{epoch}.pth'))
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optim.state_dict(),
+                    'posit_err': posit_err,
+                    'orient_err': orient_err},
+                    join(log_path, f'{utils.get_stamp_from_log()}_checkpoint-{epoch}.pth'))
 
             # Scheduler update
             scheduler.step()
             writer.add_scalar("Loss/lr", scheduler.get_lr()[0], epoch)
 
         logging.info('Training completed')
-        torch.save(model.state_dict(), join(log_path, f'{utils.get_stamp_from_log()}_final.pth'.format(epoch)))
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optim.state_dict(),
+            'posit_err': posit_err,
+            'orient_err': orient_err},
+            join(log_path, f'{utils.get_stamp_from_log()}_final.pth'.format(epoch)))
+
         writer.flush()
         writer.close()
 
@@ -220,7 +261,6 @@ def main(cfg) -> None:
 
                 # Save hypernetwork's output (weights)
                 hyperparams[i, :] = np.concatenate((w_t.data.cpu(), w_rot.data.cpu()), axis=1).reshape(-1)
-
 
         # Record overall statistics
         logging.info("Performance of {} on {}".format(cfg.inputs.checkpoint_path, cfg.inputs.labels_file))
