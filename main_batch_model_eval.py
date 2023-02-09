@@ -78,7 +78,8 @@ def main(cfg) -> None:
         model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
         model.to(device)
 
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device_id))
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
         logging.info("Initializing from checkpoint: {}".format(checkpoint_path))
 
         # Set to eval mode

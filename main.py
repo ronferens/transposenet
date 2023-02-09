@@ -105,7 +105,7 @@ def main(cfg) -> None:
         epoch_start = 0
 
         # Load the checkpoint if needed
-        if cfg.inputs.checkpoint_path:
+        if cfg.general.continue_train and cfg.inputs.checkpoint_path:
             optim.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch_start = checkpoint['epoch']
             posit_err = checkpoint['posit_err']
