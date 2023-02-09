@@ -32,9 +32,7 @@ class CameraPoseLoss(nn.Module):
 
         # Assigning the GT location and rotation
         gt_loc = gt_pose[:, :3]
-        gt_rot = gt_pose[:, 3:]
-
-        gt_rot = rot_utils.compute_rotation_matrix_from_quaternion(gt_rot)
+        gt_rot = rot_utils.compute_rotation_matrix_from_quaternion(gt_pose[:, 3:])
 
         # Position loss
         l_x = torch.norm(gt_loc - est_loc, dim=1, p=self.norm).mean()
