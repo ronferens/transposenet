@@ -39,6 +39,7 @@ class CameraPoseLoss(nn.Module):
 
         # Orientation loss (normalized to unit norm)
         l_q = self._mean_criterion(est_rot, gt_rot)
+        l_q = self._sum_criterion(est_rot, gt_rot)
 
         if self._learnable:
             return l_x * torch.exp(-self._s_x) + self._s_x + l_q * torch.exp(-self._s_q) + self._s_q

@@ -5,7 +5,7 @@ inputs:
   dataset_path: '/home/dev/Data/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_KingsCollege_test.csv'
   checkpoint_path: null
-  models_path: '/media/dev/storage1/transposenet_output/run_12_02_23_11_24'
+  models_path: '/media/dev/storage1/transposenet_output/run_12_02_23_15_28'
   models_to_evaluate: null
 
 general:

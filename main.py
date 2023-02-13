@@ -121,6 +121,9 @@ def main(cfg) -> None:
             running_loss = 0.0
             n_samples = 0
 
+            ratio = min(epoch // (500 // 10), 9) / 9
+            tau = 1 / 20 + ratio * (1 / 4 - 1 / 20)
+
             for batch_idx, minibatch in enumerate(dataloader):
                 for k, v in minibatch.items():
                     minibatch[k] = v.to(device)
@@ -146,20 +149,23 @@ def main(cfg) -> None:
 
                 est_pose = res.get('pose')
 
-                if cfg[cfg.inputs.model_name]['rot_mode'] == "4D_norm":
-                    est_rot = rot_utils.compute_rotation_matrix_from_quaternion(est_pose[:, 3:])  # b*3*3
-                elif cfg[cfg.inputs.model_name]['rot_mode'] == "6D_GM":
-                    est_rot = rot_utils.compute_rotation_matrix_from_ortho6d(est_pose[:, 3:])  # b*3*3
-                elif cfg[cfg.inputs.model_name]['rot_mode'] == "9D_SVD":
-                    est_rot = rot_utils.symmetric_orthogonalization(est_pose[:, 3:])  # b*3*3
-                elif cfg[cfg.inputs.model_name]['rot_mode'] == "10D":
-                    est_rot = rot_utils.compute_rotation_matrix_from_10d(est_pose[:, 3:])  # b*3*3
-                elif cfg[cfg.inputs.model_name]['rot_mode'] == "3D_Euler":
-                    est_rot = rot_utils.compute_rotation_matrix_from_euler(est_pose[:, 3:])  # b*3*3
-                elif cfg[cfg.inputs.model_name]['rot_mode'] == "4D_Axis":
-                    est_rot = rot_utils.compute_rotation_matrix_from_axisAngle(est_pose[:, 3:])  # b*3*3
+                if 'RPMG' in cfg[cfg.inputs.model_name]['rot_mode']:
+                    est_rot = rot_utils.simple_RPMG.apply(est_pose[:, 3:], tau, 0.01, 100)
                 else:
-                    raise NotImplementedError
+                    if cfg[cfg.inputs.model_name]['rot_mode'] == "4D_norm":
+                        est_rot = rot_utils.compute_rotation_matrix_from_quaternion(est_pose[:, 3:])  # b*3*3
+                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "6D_GM":
+                        est_rot = rot_utils.compute_rotation_matrix_from_ortho6d(est_pose[:, 3:])  # b*3*3
+                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "9D_SVD":
+                        est_rot = rot_utils.symmetric_orthogonalization(est_pose[:, 3:])  # b*3*3
+                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "10D":
+                        est_rot = rot_utils.compute_rotation_matrix_from_10d(est_pose[:, 3:])  # b*3*3
+                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "3D_Euler":
+                        est_rot = rot_utils.compute_rotation_matrix_from_euler(est_pose[:, 3:])  # b*3*3
+                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "4D_Axis":
+                        est_rot = rot_utils.compute_rotation_matrix_from_axisAngle(est_pose[:, 3:])  # b*3*3
+                    else:
+                        raise NotImplementedError
 
                 # Pose loss
                 criterion = pose_loss(est_pose[:, :3], est_rot, gt_pose)
