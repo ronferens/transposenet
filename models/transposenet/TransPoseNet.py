@@ -209,8 +209,7 @@ class TransPoseNet(nn.Module):
         # Output
         ##################################################
         x_t = torch.add(x_t, x_hyper_t)
-        x_rot = self.quat_mul(x_rot, x_hyper_rot)
-        # x_rot = torch.add(x_rot, x_hyper_rot)
+        x_rot = torch.add(x_rot, x_hyper_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
         return {'pose': expected_pose, 'w_t': self.w_t['w_o'], 'w_rot': self.w_rot['w_o']}
 
