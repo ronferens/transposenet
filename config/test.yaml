@@ -11,10 +11,11 @@ inputs:
 general:
   n_freq_print: 5
   n_workers: 4
-  device_id: 'cuda:0'
+  devices_ids: [0, 1, 2]
+  save_hyper_weights_to_file: False
 
 transposenet:
-  rot_mode: '4D_norm'
+  rot_mode: '6D_GM'
   num_encoder_layers: 6
   dim_feedforward: 256
   hidden_dim: 256

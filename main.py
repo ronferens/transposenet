@@ -14,7 +14,7 @@ from omegaconf import OmegaConf
 from util import rot_utils
 
 
-@hydra.main(version_base=None, config_path="config", config_name='cambridge_train')
+@hydra.main(version_base=None, config_path="config", config_name="scenes_train")
 def main(cfg) -> None:
 
     # Initiate logger and output folder for the experiment
@@ -33,22 +33,19 @@ def main(cfg) -> None:
 
     # Set the seeds and the device
     use_cuda = torch.cuda.is_available()
-    device_id = 'cpu'
     torch_seed = 0
     numpy_seed = 2
     torch.manual_seed(torch_seed)
     if use_cuda:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        device_id = cfg.general.device_id
     np.random.seed(numpy_seed)
-    device = torch.device(device_id)
 
     # Create the model
     model_config = OmegaConf.to_container(cfg[cfg.inputs.model_name])
     model = get_model(cfg.inputs.model_name, cfg.inputs.backbone_path, model_config)
-    model = torch.nn.DataParallel(model, device_ids=[0, 1, 2])
-    model.to(device)
+    model = torch.nn.DataParallel(model, device_ids=cfg.general.devices_ids)
+    model.cuda()
 
     # Load the checkpoint if needed
     if cfg.inputs.checkpoint_path:
@@ -77,14 +74,16 @@ def main(cfg) -> None:
 
         # Set the loss
         loss_config = OmegaConf.to_container(cfg[cfg.inputs.model_name].loss)
-        pose_loss = CameraPoseLoss(loss_config).to(device)
+        pose_loss = CameraPoseLoss(loss_config).cuda()
 
         # Set the optimizer and scheduler
         params = list(model.parameters()) + list(pose_loss.parameters())
-        optim = torch.optim.Adam(filter(lambda p: p.requires_grad, params),
-                                 lr=cfg[cfg.inputs.model_name].lr,
-                                 eps=cfg[cfg.inputs.model_name].eps,
-                                 weight_decay=cfg[cfg.inputs.model_name].weight_decay)
+        # optim = torch.optim.Adam(filter(lambda p: p.requires_grad, params),
+        #                          lr=cfg[cfg.inputs.model_name].lr,
+        #                          eps=cfg[cfg.inputs.model_name].eps,
+        #                          weight_decay=cfg[cfg.inputs.model_name].weight_decay)
+        optim = torch.optim.AdamW(filter(lambda p: p.requires_grad, params),
+                                  lr=cfg[cfg.inputs.model_name].lr)
         scheduler = torch.optim.lr_scheduler.StepLR(optim,
                                                     step_size=cfg[cfg.inputs.model_name].lr_scheduler_step_size,
                                                     gamma=cfg[cfg.inputs.model_name].lr_scheduler_gamma)
@@ -121,12 +120,9 @@ def main(cfg) -> None:
             running_loss = 0.0
             n_samples = 0
 
-            ratio = min(epoch // (500 // 10), 9) / 9
-            tau = 1 / 20 + ratio * (1 / 4 - 1 / 20)
-
             for batch_idx, minibatch in enumerate(dataloader):
                 for k, v in minibatch.items():
-                    minibatch[k] = v.to(device)
+                    minibatch[k] = v.cuda()
                 gt_pose = minibatch.get('pose').to(dtype=torch.float32)
                 batch_size = gt_pose.shape[0]
                 n_samples += batch_size
@@ -149,23 +145,20 @@ def main(cfg) -> None:
 
                 est_pose = res.get('pose')
 
-                if 'RPMG' in cfg[cfg.inputs.model_name]['rot_mode']:
-                    est_rot = rot_utils.simple_RPMG.apply(est_pose[:, 3:], tau, 0.01, 100)
+                if cfg[cfg.inputs.model_name]['rot_mode'] == "4D_norm":
+                    est_rot = rot_utils.compute_rotation_matrix_from_quaternion(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "6D_GM":
+                    est_rot = rot_utils.compute_rotation_matrix_from_ortho6d(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "9D_SVD":
+                    est_rot = rot_utils.symmetric_orthogonalization(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "10D":
+                    est_rot = rot_utils.compute_rotation_matrix_from_10d(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "3D_Euler":
+                    est_rot = rot_utils.compute_rotation_matrix_from_euler(est_pose[:, 3:])  # b*3*3
+                elif cfg[cfg.inputs.model_name]['rot_mode'] == "4D_Axis":
+                    est_rot = rot_utils.compute_rotation_matrix_from_axisAngle(est_pose[:, 3:])  # b*3*3
                 else:
-                    if cfg[cfg.inputs.model_name]['rot_mode'] == "4D_norm":
-                        est_rot = rot_utils.compute_rotation_matrix_from_quaternion(est_pose[:, 3:])  # b*3*3
-                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "6D_GM":
-                        est_rot = rot_utils.compute_rotation_matrix_from_ortho6d(est_pose[:, 3:])  # b*3*3
-                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "9D_SVD":
-                        est_rot = rot_utils.symmetric_orthogonalization(est_pose[:, 3:])  # b*3*3
-                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "10D":
-                        est_rot = rot_utils.compute_rotation_matrix_from_10d(est_pose[:, 3:])  # b*3*3
-                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "3D_Euler":
-                        est_rot = rot_utils.compute_rotation_matrix_from_euler(est_pose[:, 3:])  # b*3*3
-                    elif cfg[cfg.inputs.model_name]['rot_mode'] == "4D_Axis":
-                        est_rot = rot_utils.compute_rotation_matrix_from_axisAngle(est_pose[:, 3:])  # b*3*3
-                    else:
-                        raise NotImplementedError
+                    raise NotImplementedError
 
                 # Pose loss
                 criterion = pose_loss(est_pose[:, :3], est_rot, gt_pose)
@@ -236,13 +229,14 @@ def main(cfg) -> None:
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
         stats = np.zeros((len(dataloader.dataset), 3))
-        hyperparams = np.zeros((len(dataloader.dataset), 387 + 2052))  # For saving the output layer's weights
-        hyperparams = np.zeros((len(dataloader.dataset), 65792 + 131584))  # For saving the input layer's weights
+
+        if cfg.general.save_hyper_weights_to_file:
+            hyperparams = np.zeros((len(dataloader.dataset), 387 + 2052))  # For saving the output layer's weights
 
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
                 for k, v in minibatch.items():
-                    minibatch[k] = v.to(device)
+                    minibatch[k] = v.cuda()
 
                 gt_pose = minibatch.get('pose').to(dtype=torch.float32)
 
@@ -266,7 +260,8 @@ def main(cfg) -> None:
                     stats[i, 0], stats[i, 1], stats[i, 2]))
 
                 # Save hypernetwork's output (weights)
-                hyperparams[i, :] = np.concatenate((w_t.data.cpu(), w_rot.data.cpu()), axis=1).reshape(-1)
+                if cfg.general.save_hyper_weights_to_file:
+                    hyperparams[i, :] = np.concatenate((w_t.data.cpu(), w_rot.data.cpu()), axis=1).reshape(-1)
 
         # Record overall statistics
         logging.info("Performance of {} on {}".format(cfg.inputs.checkpoint_path, cfg.inputs.labels_file))
@@ -274,8 +269,9 @@ def main(cfg) -> None:
             "Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.nanmedian(stats[:, 0]), np.nanmedian(stats[:, 1])))
         logging.info("Mean inference time:{:.2f}[ms]".format(np.mean(stats[:, 2])))
 
-        hyperparams_data = pd.DataFrame(hyperparams)
-        hyperparams_data.to_csv('hypernetwork_weights_w_in.csv')
+        if cfg.general.save_hyper_weights_to_file:
+            hyperparams_data = pd.DataFrame(hyperparams)
+            hyperparams_data.to_csv('hypernetwork_weights_w_in.csv')
 
 
 if __name__ == "__main__":

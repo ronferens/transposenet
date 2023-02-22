@@ -19,7 +19,6 @@ class CameraPoseLoss(nn.Module):
         self._s_q = torch.nn.Parameter(torch.Tensor([config.get("s_q")]), requires_grad=self._learnable)
         self.norm = config.get("norm")
 
-        self._sum_criterion = torch.nn.MSELoss(reduction='sum')
         self._mean_criterion = torch.nn.MSELoss(reduction='mean')
 
     def forward(self, est_loc, est_rot, gt_pose):
@@ -39,7 +38,6 @@ class CameraPoseLoss(nn.Module):
 
         # Orientation loss (normalized to unit norm)
         l_q = self._mean_criterion(est_rot, gt_rot)
-        l_q = self._sum_criterion(est_rot, gt_rot)
 
         if self._learnable:
             return l_x * torch.exp(-self._s_x) + self._s_x + l_q * torch.exp(-self._s_q) + self._s_q
