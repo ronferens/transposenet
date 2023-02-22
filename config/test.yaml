@@ -2,16 +2,17 @@ inputs:
   model_name: 'transposenet'
   mode: 'test'
   backbone_path: './models/backbones/efficient-net-b0.pth'
-  dataset_path: '/home/dev/Data/cambridge'
-  labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
+  dataset_path: '/home/dev/Data/7scenes'
+  labels_file: './datasets/7Scenes/abs_7scenes_pose.csv_heads_test.csv'
   checkpoint_path: null
-  models_path: '/media/dev/storage1/transposenet_output/run_17_02_23_15_01'
+  models_path: '/media/dev/storage1/transposenet_output/run_22_02_23_16_17'
   models_to_evaluate: null
 
 general:
   n_freq_print: 5
   n_workers: 4
-  device_id: 'cuda:0'
+  devices_id: [0, 1, 2]
+  save_hyper_weights_to_file: False
 
 transposenet:
   num_encoder_layers: 6
