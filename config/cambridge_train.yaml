@@ -4,24 +4,24 @@ inputs:
   backbone_path: './models/backbones/efficient-net-b0.pth'
   dataset_path: '/home/dev/Data/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_train.csv'
-  checkpoint_path: '/media/dev/storage1/transposenet_output/best_models/cambridge/run_07_01_23_14_52_checkpoint-300.pth'
+  checkpoint_path: null
   experiment: null
   output_path: '/media/dev/storage1/transposenet_output'
 
 general:
   n_freq_print: 5
-  n_freq_checkpoint: 5 #10 #50
-  start_save_epoch: 0 #10 #200
+  n_freq_checkpoint: 50 #10 #50
+  start_save_epoch: 200 #10 #200
   n_workers: 4
-  device_id: 'cuda:0'
+  devices_id: [0, 1, 2]
   batch_size: 8
-  n_epochs: 50 #200 #1000
+  n_epochs: 750 #200 #1000
 
 transposenet:
   loss:
-    learnable: False
-    s_x: 0.0 #-3
-    s_q: 1.0 #250 #-6.5
+    learnable: True
+    s_x: -3
+    s_q: -6.5
     norm: 2
   lr: 1e-4
   weight_decay: 1e-4
@@ -35,10 +35,10 @@ transposenet:
   hyper_dim_rot: 512
   dropout: 0.1
   nheads: 4
-  freeze: True
+  freeze: False
   use_prior_t_for_rot: False
   reduction:
     t: 'reduction_4'
     q: 'reduction_3'
-  #freeze_exclude_phrase: ['regressor_head_t', 'hypernet_t_fc_h1', 'hypernet_t_fc_h2', 'hypernet_t_fc_o']
-  freeze_exclude_phrase: ['regressor_head_rot', 'hypernet_rot_fc_h1', 'hypernet_rot_fc_h2', 'hypernet_rot_fc_o']
+  freeze_exclude_phrase: ['regressor_head_t', 'hypernet_t_fc_h1', 'hypernet_t_fc_h2', 'hypernet_t_fc_o']
+#  freeze_exclude_phrase: ['regressor_head_rot', 'hypernet_rot_fc_h1', 'hypernet_rot_fc_h2', 'hypernet_rot_fc_o']
