@@ -2,10 +2,10 @@ inputs:
   model_name: 'transposenet'
   mode: 'test'
   backbone_path: './models/backbones/efficient-net-b0.pth'
-  dataset_path: '/home/dev/Data/7scenes'
-  labels_file: './datasets/7Scenes/abs_7scenes_pose.csv_heads_test.csv'
+  dataset_path: '/home/dev/Data/cambridge'
+  labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
   checkpoint_path: null
-  models_path: '/media/dev/storage1/transposenet_output/run_22_02_23_16_17'
+  models_path: '/media/dev/storage1/transposenet_output/run_26_02_23_12_51'
   models_to_evaluate: null
 
 general:
@@ -20,6 +20,7 @@ transposenet:
   hidden_dim: 256
   hyper_dim_t: 256
   hyper_dim_rot: 512
+  use_quat_mul: False
   nheads: 4
   reduction:
     t: 'reduction_4'

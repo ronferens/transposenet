@@ -11,15 +11,15 @@ inputs:
 general:
   n_freq_print: 5
   n_freq_checkpoint: 50 #10 #50
-  start_save_epoch: 200 #10 #200
+  start_save_epoch: 100 #10 #200
   n_workers: 4
   devices_id: [0, 1, 2]
   batch_size: 8
-  n_epochs: 750 #200 #1000
+  n_epochs: 500 #200 #1000
 
 transposenet:
   loss:
-    learnable: True
+    learnable: False
     s_x: -3
     s_q: -6.5
     norm: 2
@@ -35,10 +35,10 @@ transposenet:
   hyper_dim_rot: 512
   dropout: 0.1
   nheads: 4
-  freeze: False
-  use_prior_t_for_rot: False
+  freeze: True
+  use_quat_mul: True
   reduction:
     t: 'reduction_4'
     q: 'reduction_3'
-  freeze_exclude_phrase: ['regressor_head_t', 'hypernet_t_fc_h1', 'hypernet_t_fc_h2', 'hypernet_t_fc_o']
-#  freeze_exclude_phrase: ['regressor_head_rot', 'hypernet_rot_fc_h1', 'hypernet_rot_fc_h2', 'hypernet_rot_fc_o']
+#  freeze_exclude_phrase: ['regressor_head_t', 'hypernet_t_fc_h1', 'hypernet_t_fc_h2', 'hypernet_t_fc_o']
+  freeze_exclude_phrase: ['regressor_head_rot', 'hypernet_rot_fc_h1', 'hypernet_rot_fc_h2', 'hypernet_rot_fc_o']

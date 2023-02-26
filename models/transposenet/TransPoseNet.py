@@ -46,7 +46,7 @@ class TransPoseNet(nn.Module):
         self.input_proj_rot = nn.Conv2d(self.backbone.num_channels[1], decoder_dim, kernel_size=1)
 
         # Whether to use prior from the position for the orientation
-        self.use_prior = config.get("use_prior_t_for_rot")
+        self.use_quat_mul = config.get("use_quat_mul")
 
         # =========================================
         # Hypernetwork
@@ -82,9 +82,8 @@ class TransPoseNet(nn.Module):
         self.regressor_hyper_rot = PoseRegressorHyper(decoder_dim, self.hyper_dim_rot, 4, hidden_scale=1.0)
 
         # (2) Regressors for position (t) and orientation (rot)
-        self.use_prior = config.get("use_prior_t_for_rot")
         self.regressor_head_t = PoseRegressor(decoder_dim, 3)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, 4, self.use_prior)
+        self.regressor_head_rot = PoseRegressor(decoder_dim, 4)
 
     def _swish(self, x):
         return x * F.sigmoid(x)
@@ -200,16 +199,16 @@ class TransPoseNet(nn.Module):
 
         # (2) Trained regressors
         x_t = self.regressor_head_t(global_desc_t)
-        if self.use_prior:
-            global_desc_rot = torch.cat((global_desc_t, global_desc_rot), dim=1)
-
         x_rot = self.regressor_head_rot(global_desc_rot)
 
         ##################################################
         # Output
         ##################################################
         x_t = torch.add(x_t, x_hyper_t)
-        x_rot = torch.add(x_rot, x_hyper_rot)
+        if self.use_quat_mul:
+            x_rot = self.quat_mul(x_rot, x_hyper_rot)
+        else:
+            x_rot = torch.add(x_rot, x_hyper_rot)
         expected_pose = torch.cat((x_t, x_rot), dim=1)
         return {'pose': expected_pose, 'w_t': self.w_t['w_o'], 'w_rot': self.w_rot['w_o']}
 
@@ -274,18 +273,15 @@ class PoseRegressorHyper(nn.Module):
 class PoseRegressor(nn.Module):
     """ A simple MLP to regress a pose component"""
 
-    def __init__(self, decoder_dim, output_dim, use_prior=False):
+    def __init__(self, decoder_dim, output_dim):
         """
         decoder_dim: (int) the input dimension
-        output_dim: (int) the outpur dimension
+        output_dim: (int) the output dimension
         use_prior: (bool) whether to use prior information
         """
         super().__init__()
         ch = 1024
         self.fc_h = nn.Linear(decoder_dim, ch)
-        self.use_prior = use_prior
-        if self.use_prior:
-            self.fc_h_prior = nn.Linear(decoder_dim * 2, ch)
         self.fc_o = nn.Linear(ch, output_dim)
         self._reset_parameters()
 
@@ -298,9 +294,5 @@ class PoseRegressor(nn.Module):
         """
         Forward pass
         """
-        if self.use_prior:
-            x = F.gelu(self.fc_h_prior(x))
-        else:
-            x = F.gelu(self.fc_h(x))
-
+        x = F.gelu(self.fc_h(x))
         return self.fc_o(x)
