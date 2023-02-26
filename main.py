@@ -13,7 +13,7 @@ import hydra
 from omegaconf import OmegaConf
 
 
-@hydra.main(version_base=None, config_path="config", config_name="cambridge_train")
+@hydra.main(version_base=None, config_path="config", config_name="test")
 def main(cfg) -> None:
 
     # Initiate logger and output folder for the experiment
@@ -191,6 +191,31 @@ def main(cfg) -> None:
 
         if cfg.general.save_hyper_weights_to_file:
             hyperparams = np.zeros((len(dataloader.dataset), 387 + 2052))  # For saving the output layer's weights
+
+        # we will save the conv layer weights in this list
+        model_weights = []
+        # we will save the 49 conv layers in this list
+        conv_layers = []
+        # get all the model children as list
+        model_children = list(model.children())
+        # counter to keep count of the conv layers
+        counter = 0
+        # append all the conv layers and their respective wights to the list
+        for i in range(len(model_children)):
+            if type(model_children[i]) == torch.nn.Conv2d:
+                counter += 1
+                model_weights.append(model_children[i].weight)
+                conv_layers.append(model_children[i])
+            elif type(model_children[i]) == torch.nn.Sequential:
+                for j in range(len(model_children[i])):
+                    for child in model_children[i][j].children():
+                        if type(child) == torch.nn.Conv2d:
+                            counter += 1
+                            model_weights.append(child.weight)
+                            conv_layers.append(child)
+        print(f"Total convolution layers: {counter}")
+        print("conv_layers")
+
 
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
