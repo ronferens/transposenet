@@ -2,11 +2,13 @@ inputs:
   model_name: 'transposenet'
   mode: 'test'
   backbone_path: './models/backbones/efficient-net-b0.pth'
-  dataset_path: '/home/dev/Data/7scenes'
-  labels_file: './datasets/7Scenes/abs_7scenes_pose.csv_heads_test.csv'
-  checkpoint_path: null
-  models_path: '/media/dev/storage1/transposenet_output/run_22_02_23_16_17'
+  dataset_path: '/home/dev/Data/cambridge'
+  labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
+  checkpoint_path: '/media/dev/storage1/transposenet_output/best_models/cambridge/run_07_01_23_14_52_checkpoint-300.pth'
+  models_path: '/media/dev/storage1/transposenet_output/run_25_02_23_19_17'
   models_to_evaluate: null
+  experiment: null
+  output_path: '/media/dev/storage1/transposenet_output'
 
 general:
   n_freq_print: 5
