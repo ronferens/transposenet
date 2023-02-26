@@ -16,6 +16,7 @@ general:
   devices_id: [0, 1, 2]
   batch_size: 8
   n_epochs: 1000 #200 #1000
+  save_hyper_weights_to_file: False
 
 transposenet:
   loss:
@@ -36,7 +37,7 @@ transposenet:
   dropout: 0.1
   nheads: 4
   freeze: False
-  use_quat_mul: True
+  use_quat_mul: False
   reduction:
     t: 'reduction_4'
     q: 'reduction_3'

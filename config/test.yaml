@@ -5,7 +5,7 @@ inputs:
   dataset_path: '/home/dev/Data/cambridge'
   labels_file: './datasets/CambridgeLandmarks/abs_cambridge_pose_sorted.csv_ShopFacade_test.csv'
   checkpoint_path: null
-  models_path: '/media/dev/storage1/transposenet_output/run_26_02_23_12_51'
+  models_path: '/media/dev/storage1/transposenet_output/run_26_02_23_15_01'
   models_to_evaluate: null
 
 general:
@@ -20,7 +20,7 @@ transposenet:
   hidden_dim: 256
   hyper_dim_t: 256
   hyper_dim_rot: 512
-  use_quat_mul: False
+  use_quat_mul: True
   nheads: 4
   reduction:
     t: 'reduction_4'
