@@ -13,7 +13,7 @@ import hydra
 from omegaconf import OmegaConf
 
 
-@hydra.main(version_base=None, config_path="config", config_name="scenes_train")
+@hydra.main(version_base=None, config_path="config", config_name="cambridge_train")
 def main(cfg) -> None:
 
     # Initiate logger and output folder for the experiment
