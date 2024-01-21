@@ -1,4 +1,9 @@
 ## Paying Attention to Activation Maps in Camera Pose Regression
+
+<p align="center">
+  <a href="https://ronferens.github.io/transposenet/" target="_blank"><b>Project Page</b></a>
+</p>
+
 This repository implements the *TransPoseNet* architecture described in our paper: **Paying Attention to Activation Maps in Camera Pose Regression**.
 
 
