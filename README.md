@@ -1,16 +1,21 @@
-## Paying Attention to Activation Maps in Camera Pose Regression
+<div align="center">
+<h2>Paying Attention to Activation Maps in Camera Pose Regression</h2>
 
-<p align="center">
-  <a href="https://ronferens.github.io/transposenet/" target="_blank"><b>Project Page</b></a>
-</p>
+[**Yoli Shavit**](https://yolish.github.io/) · [**Ron Ferens**](https://ronferens.github.io/) · [**Yosi Keller**](https://yosikeller.github.io/)
 
-This repository implements the *TransPoseNet* architecture described in our paper: **Paying Attention to Activation Maps in Camera Pose Regression**.
+Bar-Ilan University
 
+<a href="https://arxiv.org/abs/2103.11477"><img src='https://img.shields.io/badge/arXiv-Transposenet-red' alt='Paper PDF'></a>
+<a href='https://ronferens.github.io/transposenet/'><img src='https://img.shields.io/badge/Project_Page-Transposenet-green' alt='Project Page' target="_blank"></a>
+</div>
+
+This repository implement the *TransPoseNet* architecture described in our paper: [Paying Attention to Activation Maps in Camera Pose Regression](https://arxiv.org/pdf/2103.11477.pdf).
 
 The figure below illustrates our proposed scheme. The input image is
 		first encoded by a convolutional backbone. Two activation maps, at different resolutions, are transformed into sequential representations. The two activation sequences are analyzed by dual Transformer encoders, one per regression task. We depict the attention weights via
 		heatmaps. Position is best estimated by corner-like image features,
-		while orientation is estimated by edge-like features. Each Transformer encoder output is  used to regress the respective camera pose component (position x or orientation q) 
+		while orientation is estimated by edge-like features. Each Transformer encoder output is  used to regress the respective camera pose component (position x or orientation q).
+
 ![TransPoseNet Illustration](./img/transposenet.png)
 
 
