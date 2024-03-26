@@ -1,15 +1,16 @@
 <div align="center">
-<h2>Paying Attention to Activation Maps in Camera Pose Regression</h2>
+<h2>Learning Single and Multi-scene Camera Pose Regression with Transformer Encoders</h2>
 
 [**Yoli Shavit**](https://yolish.github.io/) · [**Ron Ferens**](https://ronferens.github.io/) · [**Yosi Keller**](https://yosikeller.github.io/)
 
 Bar-Ilan University
 
+<a href="https://www.sciencedirect.com/science/article/pii/S1077314224000638?dgcid=coauthor"><img src='https://img.shields.io/badge/CVIU Publication-Transposenet-blue' alt='CVIU Publication'></a>
 <a href="https://arxiv.org/abs/2103.11477"><img src='https://img.shields.io/badge/arXiv-Transposenet-red' alt='Paper PDF'></a>
 <a href='https://ronferens.github.io/transposenet/'><img src='https://img.shields.io/badge/Project_Page-Transposenet-green' alt='Project Page' target="_blank"></a>
 </div>
 
-This repository implement the *TransPoseNet* architecture described in our paper: [Paying Attention to Activation Maps in Camera Pose Regression](https://arxiv.org/pdf/2103.11477.pdf).
+This repository implement the *TransPoseNet* architecture described in our paper: [Learning Single and Multi-scene Camera Pose Regression with Transformer Encoders](https://www.sciencedirect.com/science/article/pii/S1077314224000638?dgcid=coauthor).
 
 The figure below illustrates our proposed scheme. The input image is
 		first encoded by a convolutional backbone. Two activation maps, at different resolutions, are transformed into sequential representations. The two activation sequences are analyzed by dual Transformer encoders, one per regression task. We depict the attention weights via
